@@ -3,12 +3,15 @@
 
 // take number of seconds and convert it to human-readable 
 // string like 5h30m21s
-function strTimeDelta(secs) {
+function strTimeDelta(secs, showSecs=true) {
   var hours = Math.floor(secs/60/60);
   secs = secs - hours*60*60;
   var minutes = Math.floor(secs/60);
   secs = secs - minutes * 60;
-  var txt = secs + "s";
+  var txt = "";
+  if (showSecs || hours == 0 && minutes == 0) {
+	txt = secs + "s";
+  }
   if(minutes > 0) txt = minutes + "m " + txt;
   if(hours > 0) txt = hours + "h " + txt;
   return txt;
@@ -16,7 +19,10 @@ function strTimeDelta(secs) {
 
 // pretty print date in a nice format, utility function
 function ppDate(date) {
-  return ['Jan.', 'Feb.', 'Mar.', 
+  return ['Sun', 'Mon', 'Tue', 
+	'Wed', 'Thu', 'Fri', 
+	'Sat'][date.getDay()] + ", " +
+	['Jan.', 'Feb.', 'Mar.', 
         'Apr.', 'May.', 'Jun.',
         'Jul.', 'Aug.', 'Sep.', 
         'Oct.', 'Nov.', 'Dec.'][date.getMonth()] + " " +
