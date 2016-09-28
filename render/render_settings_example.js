@@ -20,8 +20,9 @@ var title_mappings = [
 {pattern : /\.html.*Sublime Text/, mapto : 'SubText2 Coding'},
 {pattern : /\.cpp.*Sublime Text/, mapto : 'SubText2 Coding'},
 {pattern : /\.h.*Sublime Text/, mapto : 'SubText2 Coding'},
-{pattern : /__LOCKEDSCREEN/, mapto : 'Locked Screen'}, // __LOCKEDSCREEN is a special token
 {pattern : /TeXworks/, mapto : 'Latex'},
+{pattern : /__IDLE/, mapto : 'Computer idle'}, // __IDLE is a special token
+{pattern : /__LOCKEDSCREEN/, mapto : 'Computer locked'}, // __LOCKEDSCREEN is a special token
 ];
 
 // be very careful with ordering in the above because titles
@@ -52,7 +53,7 @@ var display_groups = [];
 display_groups.push(["Gmail", "Google Chrome", "MISC", "SubText2"]); // internet related
 display_groups.push(["Matlab", "SubText2 Coding", "INotebook", "Terminal", "Papers"]); // work related
 display_groups.push(["TeXworks"]); // paper writing related
-display_groups.push(["Locked Screen"]); // computer not being used 
+display_groups.push(["Computer idle", "Computer locked"]); // computer not being used 
 
 // list of titles that classify as "hacking", or being productive in general
 // the main goal of the day is to get a lot of focused sessions of hacking

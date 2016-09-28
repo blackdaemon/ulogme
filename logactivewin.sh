@@ -14,14 +14,38 @@ SSS_NOSCREENSAVER=".*no[[:blank:]]screensaver.*"
 SSS_NONBLANKED=".*non-blanked.*"
 SSS_NOSAVERSTATUS="no saver status on root window"
 
-waittime="2" # number of seconds between executions of loop
-maxtime="600" # if last write happened more than this many seconds ago, write even if no window title changed
+WAIT_TIME="5" # number of seconds between executions of loop
+MIN_WRITE_TIME=600
+MIN_IDLE_TIME=$(( 5 * 60 ))
+IDLE_NOTIFICATION_TIME=10
+NOTIFY_IDLE=true
+
+type notify-send >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+	echo "WARNING: 'notify-send' not installed, idle notification will not be available"
+	NOTIFY_IDLE=false
+fi
+
+function notify_idle() {
+	if [ $NOTIFY_IDLE = true ]; then
+		notify-send -t $(( IDLE_NOTIFICATION_TIME * 1000 )) -c "presence" -i $(pwd)/render/favicon.png -u critical "ulogme" "Logging computer idle in $IDLE_NOTIFICATION_TIME seconds"
+	fi
+}
+
+type xprintidle >/dev/null 2>&1 || echo "WARNING: 'xprintidle' not installed, idle time detection will not be available (screen saver / lock screen detection only)"
+
+# Get idle time in seconds. If xprintidle is not installed, returns 0.
+function get_idle_time() {
+    type xprintidle >/dev/null 2>&1 && echo $(( $(timeout -s 9 1 xprintidle) / 1000 )) || echo 0
+}
 
 #------------------------------
 
 mkdir -p logs
-last_write="0"
 lasttitle=""
+idle_notification_on=false
+last_write=$(date +%s)
+
 while true
 do
 	islocked=true
@@ -51,6 +75,20 @@ do
 	else 
 		id=$(xdotool getactivewindow)
 		curtitle=$(wmctrl -lpG | while read -a a; do w=${a[0]}; if (($((16#${w:2}))==id)) ; then echo "${a[@]:8}"; break; fi; done)
+
+		idle_time=$(get_idle_time)
+        if [ $idle_time -ge $(( MIN_IDLE_TIME - IDLE_NOTIFICATION_TIME )) ]; then
+            if [ $idle_time -ge $MIN_IDLE_TIME ]; then
+                curtitle="__IDLE"
+            else
+                if [ $idle_notification_on != true ]; then
+                    notify_idle
+                    idle_notification_on=true
+                fi 
+            fi
+        else
+            idle_notification_on=false
+        fi
 	fi
 
 	perform_write=false
@@ -60,27 +98,27 @@ do
 		perform_write=true
 	fi
 
+    # number of seconds elapsed since Jan 1, 1970 0:00 UTC
 	T="$(date +%s)"
 	
 	# if more than some time has elapsed, do a write anyway
 	#elapsed_seconds=$(expr $T - $last_write)
-	#if [ $elapsed_seconds -ge $maxtime ]; then
+	#if [ $elapsed_seconds -ge $MIN_WRITE_TIME ]; then
 	#	perform_write=true
 	#fi
 
 	# log window switch if appropriate
 	if [ "$perform_write" = true ]; then 
-		# number of seconds elapsed since Jan 1, 1970 0:00 UTC
-		logfile="logs/window_$(python rewind7am.py).txt"
+        # Get rewind time, day starts at 7am and ends at 6:59am next day
+        rewind7am=$(python rewind7am.py)
+        # One logfile daily
+        logfile="logs/window_${rewind7am}.txt"
+        # Log window title
 		echo "$T $curtitle" >> $logfile
 		echo "logged window title: $(date) $curtitle into $logfile"
 		last_write=$T
 	fi
 
 	lasttitle="$curtitle" # swap
-	sleep "$waittime" # sleep
+	sleep "$WAIT_TIME" # sleep
 done
-
-
-
-
