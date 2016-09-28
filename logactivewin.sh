@@ -10,8 +10,13 @@ LANG=en_US.utf8
 # (with 2 second frequency check time), or every 10 minutes if 
 # no changes occur.
 
+SSS_NOSCREENSAVER=".*no[[:blank:]]screensaver.*"
+SSS_NONBLANKED=".*non-blanked.*"
+SSS_NOSAVERSTATUS="no saver status on root window"
+
 waittime="2" # number of seconds between executions of loop
 maxtime="600" # if last write happened more than this many seconds ago, write even if no window title changed
+
 #------------------------------
 
 mkdir -p logs
@@ -22,14 +27,18 @@ do
 	islocked=true
 	# Try to figure out which Desktop Manager is running and set the
 	# screensaver commands accordingly.
-	if [[ $GDMSESSION == 'xfce' ]]; then
-		# Assume XFCE folks use xscreensaver (the default).
-		screensaverstate=$(xscreensaver-command -time | cut -f2 -d: | cut -f2-3 -d' ')
-		if [[ $screensaverstate =~ "screen non-blanked" ]]; then islocked=false; fi
-	elif [[ $GDMSESSION == 'ubuntu' || $GDMSESSION == 'ubuntu-2d' || $GDMSESSION == 'gnome-shell' || $GDMSESSION == 'gnome-classic' || $GDMSESSION == 'gnome-fallback' || $GDMSESSION == 'cinnamon' ]]; then
+    if [ $(pgrep -x xscreensaver | wc -l) -gt 0 ]; then
+        # This covers also XFCE, assume it uses xscreensaver by default.
+        sss=$(xscreensaver-command -time 2>&1)
+        if [[ $sss =~ $SSS_NOSCREENSAVER || $sss =~ $SSS_NONBLANKED || $sss =~ $SSS_NOSAVERSTATUS ]]; then
+            islocked=false;
+        fi
+    elif [[ $GDMSESSION == 'ubuntu' || $GDMSESSION == 'ubuntu-2d' || $GDMSESSION == 'gnome-shell' || $GDMSESSION == 'gnome-classic' || $GDMSESSION == 'gnome-fallback' || $GDMSESSION == 'gnome' || $GDMSESSION == 'cinnamon' ]]; then
 		# Assume the GNOME/Ubuntu/cinnamon folks are using gnome-screensaver.
 		screensaverstate=$(gnome-screensaver-command -q 2>&1 /dev/null)
-		if [[ $screensaverstate =~ .*inactive.* ]]; then islocked=false; fi
+        if [[ $screensaverstate =~ .*inactive.* ]]; then
+                islocked=false
+        fi
 	elif [[ $XDG_SESSION_DESKTOP == 'KDE' ]]; then
 		islocked=$(qdbus org.kde.screensaver /ScreenSaver org.freedesktop.ScreenSaver.GetActive)
 	else
