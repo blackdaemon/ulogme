@@ -2,7 +2,14 @@ render/events_*json
 .env
 logs
 *.swp
+*.swo
 *.pyc
+*.*~
+*.log
 old
 .DS_Store
 .python_pid
+nohup.out
+/.project
+/.pydevproject
+/conf/
