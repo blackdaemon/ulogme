@@ -1,10 +1,11 @@
 #!/bin/bash
-
+# vim:set ff=unix tabstop=4 shiftwidth=4 expandtab:
 
 # logs the key press frequency over 9 second window. Logs are written 
 # in logs/keyfreqX.txt every 9 seconds, where X is unix timestamp of 7am of the
 # recording day.
 
+LANGUAGE=en_US
 LANG=en_US.utf8
 
 helperfile="logs/keyfreqraw.txt" # temporary helper file

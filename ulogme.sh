@@ -1,4 +1,5 @@
 #!/bin/bash
+# vim:set ff=unix tabstop=4 shiftwidth=4 expandtab:
 
 if [ "$(uname)" == "Darwin" ]; then
   # This is a Mac

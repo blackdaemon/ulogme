@@ -1,5 +1,7 @@
 #!/bin/bash
+# vim:set ff=unix tabstop=4 shiftwidth=4 expandtab:
 
+LANGUAGE=en_US
 LANG=en_US.utf8
 
 # logs the active window titles over time. Logs are written 
