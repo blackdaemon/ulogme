@@ -67,20 +67,38 @@ h1 {
   margin: 0;
   padding: 20px;
 }
-#leftarrow {
-  float: left;
+
+#header {
+  display: inline-block;
+  font-weight: bold;
+  width: 90%;
+  font-size: 10pt;
+  font-size: 1.0vw;
 }
-#rightarrow {
-  float: right;
+
+img#leftarrow {
+  max-width: 40px;
+  max-height: 40px;
+  vertical-align: middle;
+  cursor: pointer;
 }
+
+img#rightarrow {
+  max-width: 40px;
+  max-height: 40px;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
 .arrow {
-  font-size: 50px;
-  padding-top: 10px;
-  padding-bottom: 10px;
+  background-color: #FFA;
+  text-align: center;
+  white-space: nowrap;
+  padding-top: 0px;
+  padding-bottom: 0px;
   padding-left: 40px;
   padding-right: 40px;
   color: #662;
-  cursor: pointer;
   /* make arrows unselectable, since they are text technically */
   -webkit-user-select: none;  /* Chrome all / Safari all */
   -moz-user-select: none;     /* Firefox all */
@@ -197,4 +215,10 @@ pre {
   font-family: Impact, Charcoal, sans-serif;
   font-size: 20px;
   fill: #333;
+}
+.helper {
+    display: inline-block;
+    height: 100%;
+    vertical-align: middle;
+//    border: solid 1px blue;
 }
