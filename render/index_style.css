@@ -25,7 +25,10 @@ p {
   padding-left: 10px;
   padding-right: 10px;
 }
-
+#piecharts {
+  position: relative;
+  width: 100%;
+}
 #piechart {
   text-align: center;
   margin-top: 10px;
