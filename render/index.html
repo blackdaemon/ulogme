@@ -517,12 +517,13 @@
 
       // setup blog text click event
       $("#blogenter").hide();
-      $("#blogpre").click(function(){
+      $("#blogpre").click(function(event){
         var txt = $("#blogpre").text();
         $("#blogpre").hide();
         $("#blogenter").show();
         $("#blogentertxt").val(txt)
         $("#blogentertxt").focus();
+        event.stopPropagation();
       });
 
       // setup the submit blog entry button
@@ -543,6 +544,18 @@
             }
           });
       });
+
+      $(document).click(function(event) {
+          if(!$(event.target).closest('#blogenter').length) {
+              if ($('#blogenter').is(":visible")) {
+                  var txt = $("#blogentertxt").val();
+                  $("#blogpre").text(txt);
+                  $("#blogpre").show();
+                  $("#blogenter").hide();
+              }
+          }
+      })
+
       setInterval(redraw, 1000); // in case of window resize, we can redraw
       if (auto_reload_interval > 0) {
 		setInterval(auto_reload, auto_reload_interval*60*1000);
@@ -603,7 +616,7 @@
       <div id="blogwrap">
         <pre id="blogpre"></pre>
         <div id="blogenter">
-          <textarea id="blogentertxt"></textarea>
+          <textarea id="blogentertxt" placeholder="Enter the note for this day"></textarea>
           <button id="blogentersubmit">Submit</button>
         </div>
       </div>
