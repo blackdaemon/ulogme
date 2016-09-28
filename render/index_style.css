@@ -25,13 +25,16 @@ p {
   padding-left: 10px;
   padding-right: 10px;
 }
+
 #piechart {
   text-align: center;
-  margin-top: 40px;
-  padding-top: 20px;
+  margin-top: 10px;
+  padding-top: 0px;
   margin-bottom: 20px;
-  border-top: 1px solid #AAA;
+  width: 0 auto;
+  height: 800px;
 }
+
 .line {
   fill: none;
   stroke: #55F;
@@ -167,8 +170,8 @@ input[type="text"] {
 }
 #overviewlink {
   position: absolute;
-  font-size: 30px;
-  top: 25px;
+  font-size: 25px;
+  top: 20px;
   right: 100px;
   font-weight: normal;
   font-family: 'Lato', sans-serif;

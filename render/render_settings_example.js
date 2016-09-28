@@ -55,6 +55,13 @@ display_groups.push(["Matlab", "SubText2 Coding", "INotebook", "Terminal", "Pape
 display_groups.push(["TeXworks"]); // paper writing related
 display_groups.push(["Computer idle", "Computer locked"]); // computer not being used 
 
+// Activity groups to group related work. This will be shown as inner piechart ring.
+// All related activities will be shown in outer piechart ring.
+var activity_groups = [];
+activity_groups.push({name:"Work",titles:["Matlab", "INotebook", "Papers", "Terminal", "SubText2", "SubText2 Coding", "Latex"]});
+activity_groups.push({name:"Other",titles:["Google Chrome", "Gmail", "MISC"]});
+activity_groups.push({name:"Idle",titles:["Computer locked", "Computer idle"]});
+
 // list of titles that classify as "hacking", or being productive in general
 // the main goal of the day is to get a lot of focused sessions of hacking
 // done throughout the day. Windows that arent in this list do not

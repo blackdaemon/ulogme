@@ -25,7 +25,8 @@
     <script src="d3utils.js" charset="utf-8"></script>
     <script src="underscore.min.js" charset="utf-8"></script>
     <script src="ulogme_common.js" charset="utf-8"></script>
-    
+    <script src="highcharts.js"></script>
+    <script src="exporting.js"></script>
     <script type="application/javascript">
 
     // GLOBALS
@@ -37,30 +38,201 @@
     var hacking_stats = {};
 
     // renders pie chart showing distribution of time spent into #piechart
-    function createPieChart(es, etypes, animate=true) {
+	function createPieChart(es, etypes, animate=true) {
+		// count up the total amount of time spent in all windows
+		var dtall = 0;
+		var counts = {};
+		_.each(es, function(e){
+			counts[e.m] = (counts[e.m] || 0) + e.dt;
+			dtall += e.dt;
+		});
 
-      // count up the total amount of time spent in all windows
-      var dtall = 0;
-      var counts = {};
-      _.each(es, function(e){ 
-        counts[e.m] = (counts[e.m] || 0) + e.dt; 
-        dtall += e.dt; 
-      });
-      var stats = _.map(etypes, function(m) {
-        return {val: counts[m], 
-                name: m + " (" + (100*counts[m]/dtall).toFixed(1) + "%)", 
-                col: color_hash[m]
-               };
-      });
+		var stats = _.map(etypes, function(m) {
+			return {val: counts[m], 
+				name: m + " (" + (100*counts[m]/dtall).toFixed(1) + "%)",
+				col: color_hash[m]
+			};
+		});
 
-      // create a pie chart with d3
-      var chart_data = {};
-      chart_data.width = $(window).width();
-      chart_data.height = 500;
-      chart_data.title = "Total Time: " + strTimeDelta(dtall);
-      chart_data.data = stats;
-      d3utils.drawPieChart(d3.select('#piechart'), chart_data);
+		title = "Total Time: " + strTimeDelta(dtall);
+
+		var colors = Highcharts.getOptions().colors,
+			groupsData = [],
+			activitiesData = [],
+			i,
+			j,
+			brightness;
+
+		// create color hash table, maps from window titles -> HSL color
+		var activity_group_color_hash = colorHashStrings(_.uniq(_.pluck(activity_groups, 'name')));
+
+		// Build the data array
+
+		var title_to_group = {}
+		for (var gi = 0; gi < activity_groups.length; gi += 1) {
+			var ag = activity_groups[gi]
+			for (var ti = 0; ti < ag.titles.length; ti += 1) {
+				title_to_group[ag.titles[ti]] = ag.name
+			}
+		}
+		var activity_totals = {},
+			activity_group_totals = {},
+			data_tree = {},
+			ev,
+			ag,
+			d;
+		for (i = 0; i < es.length; i += 1) {
+			ev = es[i]
+			ag = title_to_group[ev.m]
+			if (ag in data_tree) {
+				data_tree[ag].total = data_tree[ag].total + ev.dt
+				data_tree[ag].activities[ev.m] = (data_tree[ag].activities[ev.m] || 0) + ev.dt
+			} else {
+				data_tree[ag] = {
+					name: ag,
+					total: ev.dt,
+					activities: {}
+				}
+				data_tree[ag].activities[ev.m] = ev.dt
+			}
+		}
+
+		var activity_color_hash = colorHashStrings(_.uniq(Object.keys(activity_totals)));
+		for (var group_name in data_tree) {
+			var grp = data_tree[group_name]
+			groupsData.push({
+				name: grp.name,
+				y: grp.total,
+				color: activity_group_color_hash[grp.name],
+				dataLabels: {
+					rotation:0,
+				},
+			});
+			var activity_names = Object.keys(grp.activities).sort(function(a,b){
+				var cmp = a.toLowerCase().localeCompare(b.toLowerCase())
+				return cmp != 0 ? cmp : a.localeCompare(b);
+			});
+			for (i = 0; i < activity_names.length; i += 1) {
+				var total = grp.activities[activity_names[i]]
+				activitiesData.push({
+					name: activity_names[i],
+					y: total ,
+					color: activity_color_hash[activity_names[i]]
+				});
+			}
+		}
+
+	    // Create the chart
+        var main_chart_options = {
+            credits: {
+                  enabled: false
+            },
+            chart: {
+                plotBackgroundColor: null,
+                plotBorderWidth: null,
+                type: 'pie'
+            },
+            title: {
+                text: 'Activity breakdown',
+                style: {
+                    'padding-bottom': '15px'
+                }
+            },
+            subtitle: {
+                text: 'Total time: ' + strTimeDelta(dtall, false),
+                style: {
+                    fontWeight: 'bold',
+                    fontSize: '18pt',
+                }
+            },
+            yAxis: {
+                title: {
+                    text: 'Total percent market share'
+                }
+            },
+            plotOptions: {
+                pie: {
+                    shadow: false,
+                    center: ['50%', '45%'],
+                    allowPointSelect: true,
+                    showInLegend: true,
+                    },
+            },
+            tooltip: {
+                valueSuffix: '%',
+                formatter: function () {
+                    return strTimeDelta(this.y, false) + ' (' + this.percentage.toFixed(1) + '%)';
+                }
+            },
+            series: [{
+                name: 'Work balance',
+                data: groupsData,
+                size: '40%',
+                innerSize: '70%',
+                dataLabels: {
+                    formatter: function () {
+                        return this.y >= 0 ? this.point.name.toUpperCase() + '<br>' + strTimeDelta(this.y, false) + ""  : null;
+                    },
+                    color: '#000000',
+                    style: {
+                        fontSize: '12pt',
+                    },
+                    distance: -75,
+                    rotation: 0,
+                },
+                allowPointSelect: false,
+                showInLegend: false,
+                animation: animate ? {
+                    duration: 400,
+                } : false,
+            }, {
+                name: 'Activities',
+                data: activitiesData,
+                size: '70%',
+                innerSize: '65%',
+                dataLabels: {
+                    formatter: function () {
+                        // display only if larger than 1
+                        return this.y > 1 ? '<b>' + this.point.name + '</b>: ' +  strTimeDelta(this.y, false)
+                        	    : null;
+                    },
+                    style: {
+                        fontSize: '10pt',
+                    },
+                },
+                animation: animate ? {
+                    duration: 600,
+                } : false,
+            }]
+        };
+      
+        var allY, angle1, angle2, angle3;
+        var rotate = function () {
+            var p = main_chart_options.series[0];
+            angle1 = 0;
+            angle2 = 0;
+            angle3 = 0;
+            allY = 0;
+            $.each(p.data, function (i, p) {
+                allY += p.y;
+            });
+    
+            $.each(p.data, function (i, p) {
+                angle2 = angle1 + p.y * 360 / (allY);
+                angle3 = angle2 - p.y * 360 / (2 * allY);
+                if(angle3>=180){
+                p.dataLabels.rotation = angle3;
+                }else{
+                p.dataLabels.rotation = angle3;
+                }
+                angle1 = angle2;
+            });
+        };
+
+          //rotate();
+        $('#piechart').highcharts(main_chart_options);
     }
+
 
     // creates the main barcode time visualization for all mapped window titles
     function visualizeEvents(es) {
@@ -613,6 +785,9 @@
       <span class="helper"></span><img id="rightarrow" src="double-chevron-right.svg" height=40 />
     </div>
     <div id="wrap">
+      <div id="piecharts">
+          <div id="piechart"></div>
+      </div>
       <div id="blogwrap">
         <pre id="blogpre"></pre>
         <div id="blogenter">
@@ -633,7 +808,6 @@
       <div id="notesvis"></div>
       <div id="hackingvis"></div>
       <div id="eventvis"></div>
-      <div id="piechart"></div>
     </div>
   </body>
 </html>
