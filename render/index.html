@@ -37,7 +37,7 @@
     var hacking_stats = {};
 
     // renders pie chart showing distribution of time spent into #piechart
-    function createPieChart(es, etypes) {
+    function createPieChart(es, etypes, animate=true) {
 
       // count up the total amount of time spent in all windows
       var dtall = 0;
@@ -370,7 +370,7 @@
       $("#spinnerdiv").empty();
     }
 
-    function fetchAndLoadEvents(daylog) {
+    function fetchAndLoadEvents(daylog, animate=true) {
       loaded = false;
       // we do this random thing to defeat caching. Very annoying
       var json_path = daylog.fname + "?sigh=" + Math.floor(10000*Math.random());
@@ -404,12 +404,15 @@
 
         // render blog entry
         blog = 'blog' in data ? data['blog'] : '';
-        if(blog === '') { blog = 'click to enter blog for this day'; }
-        $("#blogpre").text(blog);
-
+        if(blog === '') {
+			$("#blogpre").text('Click to enter the note for this day 1');
+		} else {
+			$("#blogpre").text(blog);
+		}
+		
         visualizeEvents(events);
         writeHeader();
-        createPieChart(events, etypes);
+        createPieChart(events, etypes, animate);
         computeKeyStats(events, key_events);
         hacking_stats = computeHackingStats(events, key_events, hacking_titles);
         visualizeHackingTimes(hacking_stats);
@@ -453,20 +456,7 @@
       $("#notesinfohide").click(function(){ $("#notesinfo").hide(); });
 
       // setup refresh handler to create a post request to /reload
-      $("#reloadbutton").click(function() {
-
-        startSpinner();
-        $.post("/refresh",
-          {"time" : event_list[cur_event_id].t0},
-          function(data,status){
-            console.log("Data: " + data + "\nStatus: " + status);
-            stopSpinner();
-            if(data === 'OK') {
-              // everything went well, refresh current view
-              fetchAndLoadEvents(event_list[cur_event_id]);
-            }
-        });
-      });
+      $("#reloadbutton").click(reload);
 
       // set up notes add handler
       $("#notesadd").click(function() {
@@ -546,6 +536,31 @@
           });
       });
       setInterval(redraw, 1000); // in case of window resize, we can redraw
+      if (auto_reload_interval > 0) {
+		setInterval(auto_reload, auto_reload_interval*60*1000);
+      }
+    }
+
+    function reload(animate=true) {
+        startSpinner();
+        var r_time = 0;
+        if (cur_event_id >= 0 && event_list) {
+            r_time = event_list[cur_event_id].t0;
+        }
+        $.post("/refresh",
+          {"time" : r_time},
+          function(data,status){
+            console.log("Data: " + data + "\nStatus: " + status);
+            stopSpinner();
+            if(data === 'OK') {
+              // everything went well, refresh current view
+              fetchAndLoadEvents(event_list[cur_event_id], animate);
+            }
+        });
+    }
+
+    function auto_reload() {
+      reload(false);
     }
 
     // redraw if dirty (due to window resize event)
@@ -568,7 +583,7 @@
   </head>
   <body onload="start()">
     <div id="spinnerdiv"></div>
-    <div id="reloadbutton">&#10226</div>
+    <div id="reloadbutton"></div>
     <div id="overviewlink"><a href="overview.html">Overview</a></div>
     <h1>ulogme</h1>
     <div>

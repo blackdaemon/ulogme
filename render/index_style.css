@@ -55,7 +55,7 @@ h2 {
   background-color: #FFA;
   margin: 0;
   padding: 20px;
-  box-shadow: 0px 0px 3px 0px #AAA;
+//  box-shadow: 0px 0px 3px 0px #AAA;
 }
 h1 {
   text-align: center;
@@ -110,11 +110,14 @@ h1 {
 }
 #reloadbutton {
   position: absolute;
-  color: white;
-  font-size: 60px;
-  right: 20px;
-  top: 0px;
+  top: 14px;
+  right: 14px;
   cursor: pointer;
+  width: 50px;
+  height: 50px;
+  background: url(refresh.png);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
 }
 #notesadd {
   font-weight: bold;

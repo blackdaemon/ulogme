@@ -71,3 +71,6 @@ var draw_notes = true;
 // looks for notes that mention coffee and shows 
 // levels of coffee in body over time
 var draw_coffee = false;
+
+// Reload interval in minutes. Set to 0 to turn off.
+var auto_reload_interval = 5;
