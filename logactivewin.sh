@@ -19,6 +19,7 @@ MIN_WRITE_TIME=600
 MIN_IDLE_TIME=$(( 5 * 60 ))
 IDLE_NOTIFICATION_TIME=10
 NOTIFY_IDLE=true
+NO_IDLE_WINDOWS_CONF="./conf/no_idle_windows.conf"
 
 type notify-send >/dev/null 2>&1
 if [ $? -ne 0 ]; then
@@ -79,13 +80,29 @@ do
 
 		idle_time=$(get_idle_time)
         if [ $idle_time -ge $(( MIN_IDLE_TIME - IDLE_NOTIFICATION_TIME )) ]; then
-            if [ $idle_time -ge $MIN_IDLE_TIME ]; then
-                curtitle="__IDLE"
-            else
-                if [ $idle_notification_on != true ]; then
-                    notify_idle
-                    idle_notification_on=true
-                fi 
+			# Test if foreground window allows disregarding user idle (e.g. when playing videos)
+            disregard_idle=false
+            if [ -s "$NO_IDLE_WINDOWS_CONF" ]; then
+                while IFS=$'\n' read -r niw_regexp; do
+                	# Ignore empty lines
+                    if [ -z "$niw_regexp" ]; then
+                        continue
+                    fi
+                    if [[ "$curtitle" =~ $niw_regexp ]]; then
+                        disregard_idle=true
+                        break
+                    fi
+            	done < "$NO_IDLE_WINDOWS_CONF"
+            fi
+            if [ $disregard_idle = false ]; then
+            	if [ $idle_time -ge $MIN_IDLE_TIME ]; then
+                	curtitle="__IDLE"
+	            else
+    	            if [ $idle_notification_on != true ]; then
+        	            notify_idle
+            	        idle_notification_on=true
+                	fi 
+                fi
             fi
         else
             idle_notification_on=false

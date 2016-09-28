@@ -12,4 +12,5 @@ old
 nohup.out
 /.project
 /.pydevproject
-/conf/
+/conf/no_idle_windows.conf
+/conf/render_settings.js
