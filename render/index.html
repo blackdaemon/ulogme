@@ -63,8 +63,9 @@
     // and global total_hacking_time as well.
     function visualizeHackingTimes(hacking_stats) {
       $("#hackingvis").empty();
-      if(!draw_hacking) return; // global set in render_settings.js
-
+      if(!draw_hacking) {
+          return; // global set in render_settings.js
+      }
       var c = "rgb(200,0,0)"; // color
 
       var div = d3.select("#hackingvis").append("div");
@@ -250,7 +251,13 @@
         var d = {};
         d.x = e.t - t00;
         d.w = e.dt;
-        d.s = e.s + " (" + strTimeDelta(e.dt) + ")";
+        if (e.s.indexOf("|") != -1) {
+			// Split the record and get just the window title (part after first |)
+            title = e.s.split(/\|(.*)/)[1]
+        } else {
+            title = e.s
+        } 
+        d.s = title + " (" + strTimeDelta(e.dt) + ")";
         d.fix = fix;
         dts.push(d);
       }
