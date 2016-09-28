@@ -126,7 +126,7 @@ do
 	#fi
 
 	# log window switch if appropriate
-	if [ "$perform_write" = true ]; then 
+    if [ "$perform_write" = true -a -n "$curtitle" ]; then 
         # Get rewind time, day starts at 7am and ends at 6:59am next day
         rewind7am=$(python rewind7am.py)
         # One logfile daily
