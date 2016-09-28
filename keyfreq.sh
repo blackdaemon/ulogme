@@ -8,25 +8,31 @@
 LANGUAGE=en_US
 LANG=en_US.utf8
 
-helperfile="logs/keyfreqraw.txt" # temporary helper file
+helperfile='/dev/shm/keyfreqraw'
 
 mkdir -p logs
 
 while true
 do
-  showkey > $helperfile &
-  PID=$!
-  
-  # work in windows of 9 seconds 
-  sleep 9
-  kill $PID
+  # check each possible keyboard
+  keyboardIds=$(xinput | grep 'slave  keyboard' | grep -o 'id=[0-9]*' | cut -d= -f2)
+  # and grep only the updated ones
+  filesToGrep=''
+  for id in $keyboardIds; do
+      fileName="$helperfile.$id"
+      # Work in windows of 9 seconds
+      # Use stdbuf to remove output buffering otherwise it does not log keys before it's terminated by timeout command
+      # Remove key codes so that only 'key press' and 'key release' remains, then remove 'key press'
+      { (unbuffer timeout 9 xinput test $id | grep release | tr -d '0-9') > $fileName ; } &
+      filesToGrep+="$fileName "
+  done
+  wait
   
   # count number of key release events
-  num=$(cat $helperfile | grep release | wc -l)
-  
+  num=$(grep release $filesToGrep | wc -l)
   # append unix time stamp and the number into file
   logfile="logs/keyfreq_$(python rewind7am.py).txt"
-  echo "$(date +%s) $num"  >> $logfile
+  echo "$(date +%s) $num" >> "$logfile"
   echo "logged key frequency: $(date) $num release events detected into $logfile"
   
 done
