@@ -78,10 +78,18 @@
       var c = "rgb(200,0,0)"; // color
 
       var div = d3.select("#hackingvis").append("div");
-      div.append("p").attr("class", "tt").attr("style", "color:"+c).text("Hacking Streak");
+      div.append("p").attr("class", "tt").attr("style", "color:"+c).text(hacking_title);
       var txt = strTimeDelta(hacking_stats.total_hacking_time);
       txt += " (total keys = " + hacking_stats.total_hacking_keys + ")";
       div.append("p").attr("class", "td").text(txt);
+
+      var hacking_titles_div = div.append("div").attr("class", "fsdiv");
+      for (var q=0; q < hacking_titles.length; q++) {
+        hacking_titles_div = hacking_titles_div.append("div").attr("class", "fdiv").attr("style", "margin-right: 0px;");
+        hacking_titles_div.append("span").attr("class", "tt").attr("style", "font-size: 10pt; font-weight:bold; color: black"
+	// + color_hash[hacking_titles[q]]
+	).text(hacking_titles[q]);
+      }
 
       var W = $(window).width() - 40;
       var svg = div.append("svg")

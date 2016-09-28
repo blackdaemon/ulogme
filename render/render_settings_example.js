@@ -61,8 +61,9 @@ display_groups.push(["Computer idle", "Computer locked"]); // computer not being
 // classify as hacking, and they break "streaks" (events of focused hacking)
 // the implementation is currently quite hacky, experimental and contains 
 // many magic numbers.
-var hacking_titles = ["INotebook", "Terminal", "Matlab", "SubText2 Coding"];
 var draw_hacking = true; // by default turning this off
+var hacking_titles = ["INotebook", "Terminal", "Matlab", "SubText2 Coding"];
+var hacking_title = "Continuous Hacking";
 
 // draw notes row?
 var draw_notes = true;
