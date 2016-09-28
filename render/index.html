@@ -10,6 +10,15 @@
 
     <script src="jquery-1.8.3.min.js"></script>
     <script src="spin.min.js"></script>
+    <script>
+	window.onerror = ErrorLog;
+	function ErrorLog (msg, url, line) {
+	    if (url.includes("render_settings.js")) {
+		alert("Error in render_settings.js: " + msg + "\nline: " + line);
+		return true; // avoid to display an error message in the browser
+	    }
+	}
+    </script>
     <script src="render_utils.js"></script>
     <script src="render_settings.js"></script>
     <script src="d3.min.js" charset="utf-8"></script>
