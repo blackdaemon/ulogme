@@ -145,11 +145,6 @@
                     fontSize: '18pt',
                 }
             },
-            yAxis: {
-                title: {
-                    text: 'Total percent market share'
-                }
-            },
             plotOptions: {
                 pie: {
                     shadow: false,
@@ -550,6 +545,16 @@
       $("#spinnerdiv").empty();
     }
 
+    function renderBlogEntry(blog) {
+        if (blog === '') {
+            $("#blogpre").attr("style", "color:#888").text('Click to enter the note for this day');
+            $("#blogstash").text('');
+        } else {
+            $("#blogpre").text(blog);
+            $("#blogstash").text(blog);
+        }
+    }
+
     function fetchAndLoadEvents(daylog, animate=true) {
       loaded = false;
       // we do this random thing to defeat caching. Very annoying
@@ -582,14 +587,8 @@
           ft = daylog.t1;
         }
 
-        // render blog entry
-        blog = 'blog' in data ? data['blog'] : '';
-        if(blog === '') {
-			$("#blogpre").text('Click to enter the note for this day 1');
-		} else {
-			$("#blogpre").text(blog);
-		}
-		
+        renderBlogEntry('blog' in data ? data['blog'] : '');
+
         visualizeEvents(events);
         writeHeader();
         createPieChart(events, etypes, animate);
@@ -690,7 +689,7 @@
       // setup blog text click event
       $("#blogenter").hide();
       $("#blogpre").click(function(event){
-        var txt = $("#blogpre").text();
+        var txt = $("#blogstash").text();
         $("#blogpre").hide();
         $("#blogenter").show();
         $("#blogentertxt").val(txt)
@@ -701,10 +700,10 @@
       // setup the submit blog entry button
       $("#blogentersubmit").click(function(){
         var txt = $("#blogentertxt").val();
-        $("#blogpre").text(txt);
+        renderBlogEntry(txt);
         $("#blogpre").show();
         $("#blogenter").hide();
-
+        
         // submit to server with POST request
         $.post("/blog",
           {"time" : event_list[cur_event_id].t0, "post": txt},
@@ -720,8 +719,7 @@
       $(document).click(function(event) {
           if(!$(event.target).closest('#blogenter').length) {
               if ($('#blogenter').is(":visible")) {
-                  var txt = $("#blogentertxt").val();
-                  $("#blogpre").text(txt);
+                  renderBlogEntry($("#blogentertxt").val());
                   $("#blogpre").show();
                   $("#blogenter").hide();
               }
@@ -789,7 +787,8 @@
           <div id="piechart"></div>
       </div>
       <div id="blogwrap">
-        <pre id="blogpre"></pre>
+        <div id="blogstash" style="display:none"></div>
+        <pre id="blogpre">&nbsp;</pre>
         <div id="blogenter">
           <textarea id="blogentertxt" placeholder="Enter the note for this day"></textarea>
           <button id="blogentersubmit">Submit</button>
