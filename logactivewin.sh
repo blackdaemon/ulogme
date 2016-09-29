@@ -46,6 +46,7 @@ mkdir -p logs
 lasttitle=""
 idle_notification_on=false
 last_write=$(date +%s)
+last_log_file=""
 
 while true
 do
@@ -130,11 +131,23 @@ do
         # Get rewind time, day starts at 7am and ends at 6:59am next day
         rewind7am=$(python rewind7am.py)
         # One logfile daily
-        logfile="logs/window_${rewind7am}.txt"
-        # Log window title
-		echo "$T $curtitle" >> $logfile
-		echo "logged window title: $(date) $curtitle into $logfile"
+        log_file="logs/window_${rewind7am}.txt"
+        # If computer was just awaken, log suspend event unless it happened before 7am
+        if [ $was_awaken = true -a $suspended_at -ge $rewind7am ]; then
+            echo "$suspended_at __SUSPEND" >> $log_file
+        fi
+        # Log time commandline|windowtitle
+        echo "$T $curtitle" >> $log_file
+        echo "logged window title: $(date) $curtitle into $log_file"
+        
 		last_write=$T
+
+		# Create symlink to most recent log file everytime it changes its name,
+		# so we can use something like "tail -F logs/window_today.txt"
+        if [ "$last_log_file" != "$log_file" ]; then
+        	ln -s -f $(basename $log_file) "logs/window_today.txt"
+    		last_log_file=$log_file
+        fi
 	fi
 
 	lasttitle="$curtitle" # swap
