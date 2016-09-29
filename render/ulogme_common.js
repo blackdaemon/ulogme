@@ -6,7 +6,7 @@ function colorHashStrings(arr) {
   var color_hash = {};
   for(var i=0,N=arr.length;i<N;i++) {
     var title = arr[i];
-    color_hash[title] = "hsl(" + Math.floor((i+0.5)/N * 360) + ",100%,60%)";
+    color_hash[title] = "hsl(" + Math.floor((i+0.5)/N * 360) + ",60%,60%)";
   }
   return color_hash;
 }
