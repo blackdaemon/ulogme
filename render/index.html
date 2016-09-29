@@ -547,10 +547,10 @@
 
     function renderBlogEntry(blog) {
         if (blog === '') {
-            $("#blogpre").attr("style", "color:#888").text('Click to enter the note for this day');
+            $("#blogpre").attr("class", "empty").text('Click to enter the note for this day');
             $("#blogstash").text('');
         } else {
-            $("#blogpre").text(blog);
+            $("#blogpre").attr("class", "notempty").text(blog);
             $("#blogstash").text(blog);
         }
     }
@@ -788,7 +788,7 @@
       </div>
       <div id="blogwrap">
         <div id="blogstash" style="display:none"></div>
-        <pre id="blogpre">&nbsp;</pre>
+        <pre id="blogpre" class="empty"></pre>
         <div id="blogenter">
           <textarea id="blogentertxt" placeholder="Enter the note for this day"></textarea>
           <button id="blogentersubmit">Submit</button>

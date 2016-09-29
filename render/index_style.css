@@ -213,6 +213,15 @@ pre {
   width: 200px;
   height: 40px;
 }
+
+pre.empty {
+	color: #888;
+}
+
+pre.notempty {
+    color: #000;
+}
+
 #piechart text {
   font-family: Impact, Charcoal, sans-serif;
   font-size: 20px;
