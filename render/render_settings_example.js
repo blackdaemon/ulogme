@@ -23,6 +23,7 @@ var title_mappings = [
 {pattern : /TeXworks/, mapto : 'Latex'},
 {pattern : /__IDLE/, mapto : 'Computer idle'}, // __IDLE is a special token
 {pattern : /__LOCKEDSCREEN/, mapto : 'Computer locked'}, // __LOCKEDSCREEN is a special token
+{pattern : /__SUSPEND/, mapto : 'Computer suspended'}, // __SUSPEND is a special token
 ];
 
 // be very careful with ordering in the above because titles
@@ -53,14 +54,14 @@ var display_groups = [];
 display_groups.push(["Gmail", "Google Chrome", "MISC", "SubText2"]); // internet related
 display_groups.push(["Matlab", "SubText2 Coding", "INotebook", "Terminal", "Papers"]); // work related
 display_groups.push(["TeXworks"]); // paper writing related
-display_groups.push(["Computer idle", "Computer locked"]); // computer not being used 
+display_groups.push(["Computer locked", "Computer idle", "Computer suspended"]); // computer not being used 
 
 // Activity groups to group related work. This will be shown as inner piechart ring.
 // All related activities will be shown in outer piechart ring.
 var activity_groups = [];
 activity_groups.push({name:"Work",titles:["Matlab", "INotebook", "Papers", "Terminal", "SubText2", "SubText2 Coding", "Latex"]});
 activity_groups.push({name:"Other",titles:["Google Chrome", "Gmail", "MISC"]});
-activity_groups.push({name:"Idle",titles:["Computer locked", "Computer idle"]});
+activity_groups.push({name:"Idle",titles:["Computer locked", "Computer idle", "Computer suspended"]});
 
 // list of titles that classify as "hacking", or being productive in general
 // the main goal of the day is to get a lot of focused sessions of hacking

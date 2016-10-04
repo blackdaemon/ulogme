@@ -110,10 +110,21 @@ do
         fi
 	fi
 
-	perform_write=false
+    # Detect suspend
+    was_awaken=false
+    suspended_at=$(grep -E ': (performing suspend|Awake)' /var/log/pm-suspend.log | tail -n 2 | tr '\n' '|' | sed -rn 's/^(.*): performing suspend.*\|.*: Awake.*/\1/p')
+    if [ -n "$suspended_at" ]; then
+        suspended_at=$(date -d "$suspended_at" +%s)
+        if [ $suspended_at -ge $last_write ]; then
+            # Suspend occured after last event
+            was_awaken=true
+        fi
+    fi
+    
+    perform_write=false
 
 	# if window title changed, perform write
-	if [[ "$lasttitle" != "$curtitle" ]]; then
+    if [[ "$lasttitle" != "$curtitle" ||  $was_awaken = true ]]; then
 		perform_write=true
 	fi
 
