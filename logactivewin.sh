@@ -77,7 +77,7 @@ do
 	else 
 		wid=$(xdotool getactivewindow)
 		# Get commandline and window title separated by "|"
-		curtitle=$(wmctrl -lpG | while read -a a; do w=${a[0]}; if (($((16#${w:2}))==wid)) ; then echo $(unbuffer timeout -s 9 1 ps ho command -q ${a[@]:2:1} 2>/dev/null)"|${a[@]:8}"; break; fi; done)
+		curtitle=$(wmctrl -lpG | while read -a a; do w=${a[0]}; if (($((16#${w:2}))==wid)) ; then [ ${a[@]:2:1} -gt 0 ] && echo -n $(unbuffer timeout -s 9 1 ps ho command -q ${a[@]:2:1} 2>/dev/null); echo "|${a[@]:8}"; break; fi; done)
 
 		idle_time=$(get_idle_time)
         if [ $idle_time -ge $(( MIN_IDLE_TIME - IDLE_NOTIFICATION_TIME )) ]; then
