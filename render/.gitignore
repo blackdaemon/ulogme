@@ -1,2 +1,4 @@
 export_list.json
 render_settings.js
+*.html~
+*.swo
