@@ -19,27 +19,49 @@ SSS_NOSAVERSTATUS="no saver status on root window"
 WAIT_TIME="5" # number of seconds between executions of loop
 MIN_WRITE_TIME=600
 MIN_IDLE_TIME=$(( 5 * 60 ))
+
 IDLE_NOTIFICATION_TIME=10
-NOTIFY_IDLE=true
+NOTIFYSEND_EXISTS=true
+XPRINTIDLE_EXISTS=true
+IDLE_NOTIFICATION_SOUND="./notify-idle.wav"
+
 NO_IDLE_WINDOWS_CONF="./conf/no_idle_windows.conf"
 
-if ! type notify-send >/dev/null 2>&1
-then
-	echo "WARNING: 'notify-send' not installed, idle notification will not be available"
-	NOTIFY_IDLE=false
-fi
 
-notify_idle() {
-	if [ $NOTIFY_IDLE = true ]; then
-		notify-send -t $(( IDLE_NOTIFICATION_TIME * 1000 )) -c "presence" -i "$(pwd)/render/favicon.png" -u critical "ulogme" "Logging computer idle in $IDLE_NOTIFICATION_TIME seconds"
+play_sound() {
+	if type aplay >/dev/null 2>&1; then
+		aplay -qN -- "$1" & 
+	else 
+		if type mplayer >/dev/null 2>&1; then	
+			mplayer -really-quiet -nolirc -- "$1" &
+		else
+			if type speaker-test >/dev/null 2>&1; then
+				speaker-test -t wav -l 1 -r 16000 -w "$(readlink -m "$1")" >/dev/null &
+			fi
+		fi
 	fi
 }
 
-type xprintidle >/dev/null 2>&1 || echo "WARNING: 'xprintidle' not installed, idle time detection will not be available (screen saver / lock screen detection only)"
+if ! type notify-send >/dev/null 2>&1; then
+	echo "WARNING: 'notify-send' not installed, idle notification will not be available"
+	NOTIFYSEND_EXISTS=false
+fi
+
+notify_idle() {
+	if [ $NOTIFYSEND_EXISTS = true ]; then
+		notify-send -t $(( IDLE_NOTIFICATION_TIME * 1000 )) -c "presence" -i "$(pwd)/render/favicon.png" -u critical "ulogme" "Logging computer idle in $IDLE_NOTIFICATION_TIME seconds"
+	fi
+   	play_sound "$IDLE_NOTIFICATION_SOUND"
+}
+
+if ! type xprintidle >/dev/null 2>&1; then
+	echo "WARNING: 'xprintidle' not installed, idle time detection will not be available (screen saver / lock screen detection only)"
+	XPRINTIDLE_EXISTS=false
+fi
 
 # Get idle time in seconds. If xprintidle is not installed, returns 0.
 get_idle_time() {
-    type xprintidle >/dev/null 2>&1 && echo $(( $(timeout -s 9 1 xprintidle) / 1000 )) || echo 0
+    [ $XPRINTIDLE_EXISTS = true ] && echo $(( $(timeout -s 9 1 xprintidle) / 1000 )) || echo 0
 }
 
 #------------------------------
