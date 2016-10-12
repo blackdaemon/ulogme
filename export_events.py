@@ -51,10 +51,10 @@ def updateEvents():
     """
     islink = os.path.islink
     L = []
-    L.extend(glob.glob("logs/keyfreq_*.txt"))
+    L.extend(f for f in glob.glob("logs/keyfreq_*.txt") if not islink(f))
     # Get window log files and skip symlinks
     L.extend(f for f in glob.glob("logs/window_*.txt") if not islink(f))
-    L.extend(glob.glob("logs/notes_*.txt"))
+    L.extend(f for f in glob.glob("logs/notes_*.txt") if not islink(f))
 
     # extract all times. all log files of form {type}_{stamp}.txt
     ts = [int(x[x.find('_') + 1:x.find('.txt')]) for x in L]

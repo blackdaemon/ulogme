@@ -214,7 +214,9 @@
       var sum_kevents_global = 0;
       for(var k=0;k<events.length;k++) {
         var es = events[k]['keyfreq_events']; // window events for day k
-        
+        if (es.length == 0) {
+        	continue
+        }
         // get 7am time on this day
         var d0 = new Date(es[0].t * 1000);
         d0.setHours(7);
@@ -228,7 +230,9 @@
         var t = t00;
         while(t <= ft) { 
           kevents.push(0); t += time_bin; // create time bins
-          if(k===0) { kevents_global.push(0); }
+          if (k===0) { 
+        	  kevents_global.push(0); 
+          }
         } 
 
         // bucket up the events
@@ -291,8 +295,10 @@
       }
 
       for(var k=0;k<events.length;k++) {
-
         var kevents = allkevents[k];
+        if (!kevents) {
+        	continue;
+        }
         var div = d3.select("#keystats").append("div").attr("class", "divkeys");
 
         var svg = div.append("svg")
