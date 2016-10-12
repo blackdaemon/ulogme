@@ -1,6 +1,8 @@
 #!/bin/bash
 # vim:set ff=unix tabstop=4 shiftwidth=4 expandtab:
 
+set -o nounset
+
 LANGUAGE=en_US
 LANG=en_US.utf8
 
@@ -21,22 +23,22 @@ IDLE_NOTIFICATION_TIME=10
 NOTIFY_IDLE=true
 NO_IDLE_WINDOWS_CONF="./conf/no_idle_windows.conf"
 
-type notify-send >/dev/null 2>&1
-if [ $? -ne 0 ]; then
+if ! type notify-send >/dev/null 2>&1
+then
 	echo "WARNING: 'notify-send' not installed, idle notification will not be available"
 	NOTIFY_IDLE=false
 fi
 
-function notify_idle() {
+notify_idle() {
 	if [ $NOTIFY_IDLE = true ]; then
-		notify-send -t $(( IDLE_NOTIFICATION_TIME * 1000 )) -c "presence" -i $(pwd)/render/favicon.png -u critical "ulogme" "Logging computer idle in $IDLE_NOTIFICATION_TIME seconds"
+		notify-send -t $(( IDLE_NOTIFICATION_TIME * 1000 )) -c "presence" -i "$(pwd)/render/favicon.png" -u critical "ulogme" "Logging computer idle in $IDLE_NOTIFICATION_TIME seconds"
 	fi
 }
 
 type xprintidle >/dev/null 2>&1 || echo "WARNING: 'xprintidle' not installed, idle time detection will not be available (screen saver / lock screen detection only)"
 
 # Get idle time in seconds. If xprintidle is not installed, returns 0.
-function get_idle_time() {
+get_idle_time() {
     type xprintidle >/dev/null 2>&1 && echo $(( $(timeout -s 9 1 xprintidle) / 1000 )) || echo 0
 }
 
@@ -75,9 +77,23 @@ do
 	if [ $islocked = true ]; then
 		curtitle="__LOCKEDSCREEN"
 	else 
-		wid=$(xdotool getactivewindow)
 		# Get commandline and window title separated by "|"
-		curtitle=$(wmctrl -lpG | while read -a a; do w=${a[0]}; if (($((16#${w:2}))==wid)) ; then [ ${a[@]:2:1} -gt 0 ] && echo -n $(unbuffer timeout -s 9 1 ps ho command -q ${a[@]:2:1} 2>/dev/null); echo "|${a[@]:8}"; break; fi; done)
+		curtitle=""
+		wid=$(xdotool getactivewindow)
+		while read -ra a; do
+			w="${a[0]}"
+			if [ "$((16#${w:2}))" = $wid ]; then
+				pid="${a[@]:2:1}"
+				if [ "$pid" -eq 0 ]; then
+					continue
+				fi
+				title="${a[@]:8}"
+				command="$(stdbuf -o0 timeout -s 9 4 ps --no-headers -o command -q "$pid" 2>/dev/null | sed -r 's/\|/<pipe>/')"
+				curtitle="$command|$title"
+				break
+			fi			
+		done < <(wmctrl -lpG) 
+		
 
 		idle_time=$(get_idle_time)
         if [ $idle_time -ge $(( MIN_IDLE_TIME - IDLE_NOTIFICATION_TIME )) ]; then
@@ -112,19 +128,21 @@ do
 
     # Detect suspend
     was_awaken=false
-    suspended_at=$(grep -E ': (performing suspend|Awake)' /var/log/pm-suspend.log | tail -n 2 | tr '\n' '|' | sed -rn 's/^(.*): performing suspend.*\|.*: Awake.*/\1/p')
-    if [ -n "$suspended_at" ]; then
-        suspended_at=$(date -d "$suspended_at" +%s)
-        if [ $suspended_at -ge $last_write ]; then
-            # Suspend occured after last event
-            was_awaken=true
-        fi
-    fi
+	if [ -f '/var/log/pm-suspend.log' ]; then
+		suspended_at=$(grep -E ': (performing suspend|Awake)' /var/log/pm-suspend.log | tail -n 2 | tr '\n' '|' | sed -rn 's/^(.*): performing suspend.*\|.*: Awake.*/\1/p')
+		if [ -n "$suspended_at" ]; then
+			suspended_at=$(date -d "$suspended_at" +%s)
+			if [ $suspended_at -ge $last_write ]; then
+				# Suspend occured after last event
+				was_awaken=true
+			fi
+		fi
+	fi
     
     perform_write=false
 
 	# if window title changed, perform write
-    if [[ "$lasttitle" != "$curtitle" ||  $was_awaken = true ]]; then
+    if [ "$lasttitle" != "$curtitle" ] || [ $was_awaken = true ]; then
 		perform_write=true
 	fi
 
@@ -132,23 +150,23 @@ do
 	T="$(date +%s)"
 	
 	# if more than some time has elapsed, do a write anyway
-	#elapsed_seconds=$(expr $T - $last_write)
+	#elapsed_seconds=$(( T - last_write ))
 	#if [ $elapsed_seconds -ge $MIN_WRITE_TIME ]; then
 	#	perform_write=true
 	#fi
 
 	# log window switch if appropriate
-    if [ "$perform_write" = true -a -n "$curtitle" ]; then 
+    if [ "$perform_write" = true ] && [ -n "$curtitle" ]; then 
         # Get rewind time, day starts at 7am and ends at 6:59am next day
         rewind7am=$(python rewind7am.py)
         # One logfile daily
         log_file="logs/window_${rewind7am}.txt"
         # If computer was just awaken, log suspend event unless it happened before 7am
-        if [ $was_awaken = true -a $suspended_at -ge $rewind7am ]; then
-            echo "$suspended_at __SUSPEND" >> $log_file
+        if [ $was_awaken = true ] && [ $suspended_at -ge $rewind7am ]; then
+            echo "$suspended_at __SUSPEND" >> "$log_file"
         fi
         # Log time commandline|windowtitle
-        echo "$T $curtitle" >> $log_file
+        echo "$T $curtitle" >> "$log_file"
         echo "logged window title: $(date) $curtitle into $log_file"
         
 		last_write=$T
@@ -156,11 +174,11 @@ do
 		# Create symlink to most recent log file everytime it changes its name,
 		# so we can use something like "tail -F logs/window_today.txt"
         if [ "$last_log_file" != "$log_file" ]; then
-        	ln -s -f $(basename $log_file) "logs/window_today.txt"
+        	ln -s -f "$(basename "$log_file")" "logs/window_today.txt"
     		last_log_file=$log_file
         fi
 	fi
 
-	lasttitle="$curtitle" # swap
-	sleep "$WAIT_TIME" # sleep
+	lasttitle="$curtitle"
+	sleep "$WAIT_TIME"
 done
