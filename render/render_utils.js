@@ -14,7 +14,7 @@ function strTimeDelta(secs, showSecs=true) {
   }
   if(minutes > 0) txt = minutes + "m " + txt;
   if(hours > 0) txt = hours + "h " + txt;
-  return txt;
+  return txt.trim();
 }
 
 // pretty print date in a nice format, utility function
