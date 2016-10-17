@@ -3,7 +3,8 @@
 
 // take number of seconds and convert it to human-readable 
 // string like 5h30m21s
-function strTimeDelta(secs, showSecs=true) {
+function strTimeDelta(secs, showSecs) {
+  showSecs = (typeof showSecs === 'undefined') ? true : showSecs;
   var hours = Math.floor(secs/60/60);
   secs = secs - hours*60*60;
   var minutes = Math.floor(secs/60);
