@@ -7,10 +7,8 @@ LANGUAGE=en_US
 LANG=en_US.utf8
 
 for logfile in logs/keyfreq_*.txt; do 
-	if [ ! -s "$logfile" ]; then
-		continue
-	fi
+	[ -s "$logfile" ] || continue
 	grep -s -v " 0$" -A 1 -B 1 "$logfile" | sort -u | grep -s -v "^\-\-$" > "${logfile}.compressed"
 	ls -hsx ${logfile}*
-	mv -f "${logfile}.compressed" "$logfile"
+	mv -f -- "${logfile}.compressed" "$logfile"
 done

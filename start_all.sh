@@ -13,7 +13,7 @@ function kill_process {
 kill_process ulogme.sh
 kill_process ulogme_serve.py
 kill_process "/bin/bash ./logactivewin.sh"
-kill_process "./keyfreq.sh"
+kill_process "/bin/bash ./keyfreq.sh"
 
 nohup ./ulogme.sh > ./ulogme.log 2>&1 &
 nohup python ./ulogme_serve.py > ./ulogme_serve.log 2>&1 &
