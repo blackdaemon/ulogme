@@ -1031,7 +1031,7 @@
       if (auto_reload_interval > 0) {
 		setInterval(auto_reload, auto_reload_interval*60*1000);
       }
-      
+
       Mousetrap.bind('r', function() {
        	 if (Date.now() - last_reload < 1000) {
        		 return;
@@ -1048,12 +1048,12 @@
       Mousetrap_stopCallback = Mousetrap.prototype.stopCallback;
       // Override stopCallback function to allow handling of Esc/Command+Enter hotkeys in blogentry
       Mousetrap.prototype.stopCallback = function(e, element, combo) {
-    	    if (element.id == "blogentertxt" && (combo == "esc" || combo == "mod+enter")) {
-    	    	return false;
-    	    } else {
-    	        return Mousetrap_stopCallback(e, element, combo);
-    	    }
-    	}
+          if (element.id == "blogentertxt" && (combo == "esc" || combo == "mod+enter")) {
+              return false;
+          } else {
+              return Mousetrap_stopCallback(e, element, combo);
+          }
+      }      
     }
 
     function reload(animate) {
