@@ -27,6 +27,7 @@
     <script src="ulogme_common.js" charset="utf-8"></script>
     <script src="highcharts.js"></script>
     <script src="exporting.js"></script>
+    <script src="mousetrap.min.js" charset="utf-8"></script>
     <script type="application/javascript">
 
     // GLOBALS
@@ -36,6 +37,7 @@
     var ecounts = {};
     var etypes = [];
     var hacking_stats = {};
+    var last_reload = 0;
 
     // renders pie chart showing distribution of time spent into #piechart
 	function createPieChart(es, etypes, animate=true) {
@@ -694,11 +696,24 @@
         $("#blogenter").show();
         $("#blogentertxt").val(txt)
         $("#blogentertxt").focus();
+        Mousetrap.bind('esc', function() {
+            renderBlogEntry($("#blogentertxt").val());
+            $("#blogpre").show();
+            $("#blogenter").hide();
+            Mousetrap.unbind("esc");
+            Mousetrap.unbind("mod+enter");
+         });
+        Mousetrap.bind('mod+enter', function() {
+        	$("#blogentersubmit").trigger("click");
+         });
         event.stopPropagation();
       });
 
       // setup the submit blog entry button
       $("#blogentersubmit").click(function(){
+          Mousetrap.unbind("esc");
+          Mousetrap.unbind("mod+enter");
+
         var txt = $("#blogentertxt").val();
         renderBlogEntry(txt);
         $("#blogpre").show();
@@ -722,6 +737,8 @@
                   renderBlogEntry($("#blogentertxt").val());
                   $("#blogpre").show();
                   $("#blogenter").hide();
+                  Mousetrap.unbind("esc");
+                  Mousetrap.unbind("mod+enter");
               }
           }
       })
@@ -730,6 +747,29 @@
       if (auto_reload_interval > 0) {
 		setInterval(auto_reload, auto_reload_interval*60*1000);
       }
+
+      Mousetrap.bind('r', function() {
+       	 if (Date.now() - last_reload < 1000) {
+       		 return;
+         }
+	     reload();
+         last_reload = Date.now();
+      });
+      
+      Mousetrap.bind('n', function() {
+    	  $('#blogpre').trigger("click");
+      }, 'keyup');
+      
+      // Save original stopCallback function
+      Mousetrap_stopCallback = Mousetrap.prototype.stopCallback;
+      // Override stopCallback function to allow handling of Esc/Command+Enter hotkeys in blogentry
+      Mousetrap.prototype.stopCallback = function(e, element, combo) {
+          if (element.id == "blogentertxt" && (combo == "esc" || combo == "mod+enter")) {
+              return false;
+          } else {
+              return Mousetrap_stopCallback(e, element, combo);
+          }
+      }      
     }
 
     function reload(animate=true) {
