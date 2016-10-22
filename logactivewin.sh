@@ -119,6 +119,11 @@ get_idle_time() {
   [ $XPRINTIDLE_EXISTS != true ] && echo 0 || echo $(( $(timeout -s 9 1 xprintidle) / 1000 )) || echo 0
 }
 
+err_report() {
+    echo "Error on line $1"
+}
+trap 'err_report $LINENO' ERR
+
 
 #############################################
 # MAIN
@@ -189,6 +194,7 @@ do
           fi
           if [[ "$curtitle" =~ $niw_regexp ]]; then
             disregard_idle=true
+            echo "Disregarding idle, window detected: "$curtitle"" 
             break
           fi
         done < "$NO_IDLE_WINDOWS_CONF"
@@ -208,11 +214,17 @@ do
 
   # Detect suspend
   was_awaken=false
-  if [ -f '/var/log/pm-suspend.log' ]; then
+  if [ -s "/var/log/pm-suspend.log" ]; then
+    # Parse suspend time from pm-suspend.log. 
+    # Parse only if both suspend+awake events were detected, to avoid logging __SUSPEND too early 
+    # (before computer really falls asleep).
+    # TODO: Handle systems without pm-suspend.log
     suspended_at="$(grep -E ': (performing suspend|Awake)' /var/log/pm-suspend.log | tail -n 2 | tr '\n' '|' | sed -rn 's/^(.*): performing suspend.*\|.*: Awake.*/\1/p')"
     if [ -n "$suspended_at" ]; then
+      set -e
       suspended_at="$(date -d "$suspended_at" +%s)"
-      if [ $suspended_at -ge $last_write ]; then
+      set +e
+      if [ "$suspended_at" -ge $last_write ]; then
         # Suspend occured after last event
         was_awaken=true
       fi
