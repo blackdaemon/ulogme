@@ -1,7 +1,11 @@
 # vim:set ff=unix tabstop=4 shiftwidth=4 expandtab:
+
+# Python 2 compatibility
+from __future__ import print_function
+from __future__ import absolute_import
     
-import SocketServer
-import SimpleHTTPServer
+import six.moves.socketserver
+import six.moves.SimpleHTTPServer
 import sys
 import cgi
 import os
@@ -11,7 +15,7 @@ from export_events import updateEvents
 from rewind7am import rewindTime
 
 # Port settings
-IP = ""
+IP = "127.0.0.1"
 if len(sys.argv) > 1:
     PORT = int(sys.argv[1])
 else:
@@ -35,11 +39,11 @@ def get_status_output(cmd):
 
     
 # Custom handler
-class CustomHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
+class CustomHandler(six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler):
     def do_GET(self):
         # default behavior
         try:
-            SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self) 
+            six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler.do_GET(self) 
         except Exception as e:
             self.send_response(500)
             self.send_header('Content-type','text/html')
@@ -108,15 +112,21 @@ class CustomHandler(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.wfile.write(result)
 
 
-SocketServer.ThreadingTCPServer.allow_reuse_address = True
-httpd = SocketServer.ThreadingTCPServer((IP, PORT), CustomHandler)
+six.moves.socketserver.ThreadingTCPServer.allow_reuse_address = True
+httpd = none
 
 logging.info("Serving ulogme, see it on http://localhost:%d" % PORT)
 try:
+    httpd = six.moves.socketserver.ThreadingTCPServer((IP, PORT), CustomHandler)
     httpd.serve_forever()
-except Exception, e:
+except Exception as e:
     logging.error(e)
     raise
 finally:
-    logging.info("Closing the HTTP server.")
-    httpd.server_close()
+    if httpd:
+        try:
+            logging.info("Closing the HTTP server.")
+            httpd.server_close()
+        except Exception as e:
+            logging.error(e)
+            raise

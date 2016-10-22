@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# Python 2 compatibility
+from __future__ import print_function
+from __future__ import absolute_import
+
 import time
 import datetime
 import json
@@ -27,9 +31,9 @@ def loadEvents(fname):
             str = w[ix + 1:]
             events.append({'t': stamp, 's': str})
     except Exception as e:
-        print '%s probably does not exist, setting empty events list.' % (fname, )
-        print 'error was:'
-        print e
+        print('%s probably does not exist, setting empty events list.' % (fname, ))
+        print('error was:')
+        print(e)
         events = []
     return events
 
@@ -93,7 +97,7 @@ def updateEvents():
             e4mod = mtime(e4f)
             if e1mod > tmod or e2mod > tmod or e3mod > tmod or e4mod > tmod:
                 dowrite = True  # better update!
-                print 'a log file has changed, so will update %s' % (fwrite, )
+                print('a log file has changed, so will update %s' % (fwrite, ))
         else:
             # output file doesnt exist, so write.
             dowrite = True
@@ -116,11 +120,11 @@ def updateEvents():
                 'notes_events': e3,
                 'blog': e4}
             open(fwrite, 'w').write(json.dumps(eout))
-            print 'wrote ' + fwrite
+            print('wrote %s' % fwrite)
 
     fwrite = os.path.join(RENDER_ROOT, 'export_list.json')
     open(fwrite, 'w').write(json.dumps(out_list).encode('utf8'))
-    print 'wrote ' + fwrite
+    print('wrote %s' % fwrite)
 
 # invoked as script
 if __name__ == '__main__':

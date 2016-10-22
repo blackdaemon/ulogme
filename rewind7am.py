@@ -1,3 +1,7 @@
+# Python 2 compatibility
+from __future__ import print_function   
+from __future__ import absolute_import
+
 import sys
 import datetime
 import time
@@ -26,6 +30,6 @@ def rewindTime(t):
 if __name__ == '__main__':
     if len(sys.argv) <= 1:
         # use right now
-        print rewindTime(int(time.time()))
+        print(rewindTime(int(time.time())))
     else:
-        print rewindTime(int(sys.argv[1]))
+        print(rewindTime(int(sys.argv[1])))

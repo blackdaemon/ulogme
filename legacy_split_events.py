@@ -2,6 +2,10 @@
 # where all events were written to one file based on type. In new version these are
 # split also by date.
 
+# Python 2 compatibility
+from __future__ import print_function
+from __future__ import absolute_import
+
 import time
 import datetime
 import json
@@ -35,9 +39,9 @@ def loadEvents(fname, mint=-1, maxt=-1):
             if stamp > maxt or maxt == -1:
                 maxt = stamp
     except Exception as e:
-        print 'could not load %s. Setting empty events list.' % (fname, )
-        print '(this is probably OKAY by the way, just letting you know)'
-        print e
+        print('could not load %s. Setting empty events list.' % (fname, ))
+        print('(this is probably OKAY by the way, just letting you know)')
+        print(e)
         events = []
     return events, mint, maxt
 
@@ -47,17 +51,17 @@ maxt = -1
 
 # load all window events
 active_window_file = os.path.join(ROOT, 'logs/activewin.txt')
-print 'loading windows events...'
+print('loading windows events...')
 wevents, mint, maxt = loadEvents(active_window_file, mint, maxt)
 
 # load all keypress events
 keyfreq_file = os.path.join(ROOT, 'logs/keyfreq.txt')
-print 'loading key frequencies...'
+print('loading key frequencies...')
 kevents, mint, maxt = loadEvents(keyfreq_file, mint, maxt)
 for k in kevents:  # convert the key frequency to just be an int, not string
     k['s'] = int(k['s'])
 
-print 'loading notes...'
+print('loading notes...')
 notes_file = os.path.join(ROOT, 'logs/notes.txt')
 nevents, mint, maxt = loadEvents(notes_file, mint, maxt)
 
@@ -91,20 +95,20 @@ while curtime < maxt:
         f = open(fout, 'w')
         f.write(''.join(['%d %s\n' % (x['t'], x['s']) for x in e3]))
         f.close()
-        print 'wrote ' + fout
+        print('wrote %s' % fout)
 
     if e2:
         fout = 'logs/keyfreq_%d.txt' % (t0, )
         f = open(fout, 'w')
         f.write(''.join(['%d %s\n' % (x['t'], x['s']) for x in e2]))
         f.close()
-        print 'wrote ' + fout
+        print('wrote %s' % fout)
 
     if e1:
         fout = 'logs/window_%d.txt' % (t0, )
         f = open(fout, 'w')
         f.write(''.join(['%d %s\n' % (x['t'], x['s']) for x in e1]))
         f.close()
-        print 'wrote ' + fout
+        print('wrote %s' + fout)
 
     curtime += 60 * 60 * 24
