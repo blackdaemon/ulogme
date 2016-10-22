@@ -6,6 +6,7 @@ logs
 *.pyc
 *.*~
 *.log
+*.bak
 old
 .DS_Store
 .python_pid

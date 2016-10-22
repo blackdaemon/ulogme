@@ -6,6 +6,7 @@
     <title>ulogme</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link href='font_lato.css' rel='stylesheet' type='text/css'>
+    <link href='font_teko.css' rel='stylesheet' type='text/css'>
     <link href='index_style.css' rel='stylesheet' type='text/css'>
 
     <script src="jquery-1.8.3.min.js"></script>
@@ -31,29 +32,24 @@
     <script type="application/javascript">
 
     // GLOBALS
-    var color_hash = {}; // mapped titles -> hsl color to draw with
-    var t00; // initial time for a day (time first event began)
-    var ft; // final time for a day (time last event ended)
+    var activity_color_hash = {}; // mapped titles -> hsl color to draw with
+    var t00, t00_initial; // initial time for a day (time first event began)
+    var ft, ft_initial; // final time for a day (time last event ended)
     var ecounts = {};
     var etypes = [];
     var hacking_stats = {};
     var last_reload = 0;
 
     // renders pie chart showing distribution of time spent into #piechart
-	function createPieChart(es, etypes, animate=true) {
+	function createPieChart(es, etypes, animate) {
+		animate = (typeof animate === 'undefined') ? true : animate;
 		// count up the total amount of time spent in all windows
 		var dtall = 0;
-		var counts = {};
 		_.each(es, function(e){
-			counts[e.m] = (counts[e.m] || 0) + e.dt;
+			if (e.t < t00 || e.t > ft) {
+				return;
+			}
 			dtall += e.dt;
-		});
-
-		var stats = _.map(etypes, function(m) {
-			return {val: counts[m], 
-				name: m + " (" + (100*counts[m]/dtall).toFixed(1) + "%)",
-				col: color_hash[m]
-			};
 		});
 
 		title = "Total Time: " + strTimeDelta(dtall);
@@ -74,55 +70,106 @@
 		for (var gi = 0; gi < activity_groups.length; gi += 1) {
 			var ag = activity_groups[gi]
 			for (var ti = 0; ti < ag.titles.length; ti += 1) {
-				title_to_group[ag.titles[ti]] = ag.name
+				title_to_group[ag.titles[ti]] = ag
 			}
 		}
-		var activity_totals = {},
-			activity_group_totals = {},
-			data_tree = {},
+		var data_tree = {},
 			ev,
 			ag,
 			d;
 		for (i = 0; i < es.length; i += 1) {
 			ev = es[i]
+            if (ev.t < t00 || ev.t > ft) {
+                continue;
+            }
 			ag = title_to_group[ev.m]
-			if (ag in data_tree) {
-				data_tree[ag].total = data_tree[ag].total + ev.dt
-				data_tree[ag].activities[ev.m] = (data_tree[ag].activities[ev.m] || 0) + ev.dt
+			if (ag.name in data_tree) {
+				data_tree[ag.name].total = data_tree[ag.name].total + ev.dt
+				data_tree[ag.name].activities[ev.m] = (data_tree[ag.name].activities[ev.m] || 0) + ev.dt
 			} else {
-				data_tree[ag] = {
-					name: ag,
+				data_tree[ag.name] = {
+					name: ag.name,
+					plevel: ag.plevel,
+					color: (ag.color || null),
 					total: ev.dt,
 					activities: {}
 				}
-				data_tree[ag].activities[ev.m] = ev.dt
+				data_tree[ag.name].activities[ev.m] = ev.dt
 			}
 		}
 
-		var activity_color_hash = colorHashStrings(_.uniq(Object.keys(activity_totals)));
-		for (var group_name in data_tree) {
-			var grp = data_tree[group_name]
+		var productivity_pulse = 0;
+		for (var agi = 0; agi < activity_groups.length; agi += 1) {
+			if (!(activity_groups[agi].name in data_tree)) {
+			    continue;	
+			}
+            ag = data_tree[activity_groups[agi].name];
 			groupsData.push({
-				name: grp.name,
-				y: grp.total,
-				color: activity_group_color_hash[grp.name],
+				name: ag.name,
+				y: ag.total,
+				color: ag.color || activity_group_color_hash[ag.name],
 				dataLabels: {
 					rotation:0,
 				},
 			});
-			var activity_names = Object.keys(grp.activities).sort(function(a,b){
+			productivity_pulse = productivity_pulse + (ag.plevel / dtall * ag.total);  
+			var activity_names = Object.keys(ag.activities).sort(function(a,b){
 				var cmp = a.toLowerCase().localeCompare(b.toLowerCase())
 				return cmp != 0 ? cmp : a.localeCompare(b);
 			});
 			for (i = 0; i < activity_names.length; i += 1) {
-				var total = grp.activities[activity_names[i]]
+				var an = activity_names[i];
 				activitiesData.push({
-					name: activity_names[i],
-					y: total ,
-					color: activity_color_hash[activity_names[i]]
+					name: an,
+					y: ag.activities[an],
+					color: activity_color_hash[an],
 				});
 			}
 		}
+        var dow = new Date(t00_initial * 1000).getDay();
+        var today_workable_hours = working_hours[dow].start && working_hours[dow].end ? 
+            (working_hours[dow].end.getTime() - working_hours[dow].start.getTime())/1000/60/60 
+            : 0;
+        if (today_workable_hours > 0) {
+        	// Handicap for not working all workable hours
+        	if (dtall/60/60 < today_workable_hours) {
+                productivity_pulse = productivity_pulse / (today_workable_hours / (dtall/60/60));
+        	}
+        }
+		productivity_pulse = Math.round(productivity_pulse);
+
+        var previous_productivity_pulse = null
+            ,productivity_gain = 0;
+        var d0 = new Date(t00 * 1000)
+        // reset to 7am
+        d0.setHours(7, 0, 0, 0);
+        var today_s = d0.getTime() / 1000;
+        setCookie("ulogme-productivity-pulse-" + today_s, productivity_pulse, 30);
+        var days = 1;
+		while (true) {
+			   var previous_day = new Date((today_s - days*24*60*60)*1000);
+			   previous_productivity_pulse = getCookie("ulogme-productivity-pulse-" + previous_day.getTime()/1000) || null;
+               // Successfully got previous day pulse
+			   if (previous_productivity_pulse > 0) {
+            	   break;
+               } 
+               // Previous day pulse was 0, return it only if it was not a weekend
+			   else if (previous_productivity_pulse == 0) {
+            	   if (!skip_zero_weekend_pulse) {
+            		   break
+            	   }
+                   // Return only if not weekend
+            	   if (previous_day.getDay() != 0 && previous_day.getDay() != 6) {
+            		   break;
+            	   }
+               }
+               // Give up after checking 10 days
+               if (days == 10) {
+            	   break;
+               }
+               days++;
+		}
+        productivity_gain = previous_productivity_pulse != null ? productivity_pulse - previous_productivity_pulse : 0;  
 
 	    // Create the chart
         var main_chart_options = {
@@ -168,13 +215,13 @@
                 innerSize: '70%',
                 dataLabels: {
                     formatter: function () {
-                        return this.y >= 0 ? this.point.name.toUpperCase() + '<br>' + strTimeDelta(this.y, false) + ""  : null;
+                        return this.y >= 0 ? this.point.name.toUpperCase().substring(0,3)/* + ' (' + strTimeDelta(this.y, false) + ")"*/ : null;
                     },
                     color: '#000000',
                     style: {
-                        fontSize: '12pt',
+                        fontSize: '8pt',
                     },
-                    distance: -75,
+                    distance: -55,
                     rotation: 0,
                 },
                 allowPointSelect: false,
@@ -195,6 +242,7 @@
                     },
                     style: {
                         fontSize: '10pt',
+                        'font-family': "'Teko', sans-serif",
                     },
                 },
                 animation: animate ? {
@@ -228,6 +276,99 @@
 
           //rotate();
         $('#piechart').highcharts(main_chart_options);
+
+        //productivity_gain = 95;
+		var tl_chart_options = {
+			credits: {
+				enabled: false
+			},
+			exporting: {
+				enabled: false,
+			},
+        chart: {
+                plotBackgroundColor: null,
+                plotBorderWidth: null,
+            type: 'pie', 
+            backgroundColor: null, //'rgba(192, 192, 192, 0.002)',
+        },
+        title: {
+            text: '<div style="border:0px solid red;position:absolute;top:-50px;left:-40px;text-align:center;">'
+                + '<span style="height:70px;font-size:70px !important; font-family : \'Teko\', sans-serif;display: inline-block !important;">' + Math.round(productivity_pulse) + '</span>'
+                 +'<span style="font-size:18px !important; font-family : \'Teko\', sans-serif;"> ' +(productivity_gain != 0 ? 
+                         ' '+(productivity_gain > 0 ? '<span style="color:#005b96;font-weight:600;">&#x2b06;' + productivity_gain + '</span>'
+                                 : '<span style="color:red;font-weight:600;">&#x2b07;' + Math.abs(productivity_gain) + '</span>'
+                                 )
+                      : ' <strong>---</strong>')//'/100
+                      +'</span>'
+                 +'<br><span style="font-size:15px;">' + PRODUCTIVITY_PULSE_NAME.split(" ")[0]
+                 /*
+                 + (productivity_gain != 0 ? 
+                	' '+(productivity_gain > 0 ? '<span style="color:#005b96;font-weight:600;">&#x2b06;' + productivity_gain + '</span>'
+                			   : '<span style="color:red;font-weight:600;">&#x2b07;' + Math.abs(productivity_gain) + '</span>'
+                			   )
+                	: ' <strong>---</strong>')
+                */
+                 +'</span>'
+                 +'</div>',
+            useHTML: true,
+            verticalAlign: 'middle',
+        },
+        plotOptions: {
+            pie: {
+                shadow: false,
+                center: ['50%', '50%'],
+		allowPointSelect: true,
+		showInLegend: true,
+                startAngle: -150,
+                endAngle: 80,
+                colors: function () {
+                    var colors = [],
+                        base = Highcharts.getOptions().colors[0],
+                        i;
+
+                    for (i = 0; i < 10; i += 1) {
+                        // Start out with a darkened base color (negative brighten), and end
+                        // up with a much brighter color
+                        colors.push(Highcharts.Color(base).brighten((i - 3) / 7).get());
+                    }
+                    return colors;
+                },
+	    },
+        },
+        tooltip: {
+            valueSuffix: '',
+            formatter: function () {
+            	var a = data_tree[this.point.name];
+            	var tt = PL_NAMES[data_tree[this.point.name].plevel];
+            	return tt;
+                //return strTimeDelta(this.y, false) + ' (' + this.percentage.toFixed(1) + '%)';
+            }
+        },
+        series: [{
+            name: 'Productivity',
+            data: groupsData,
+            size: '100%',
+	        innerSize: '75%',
+            dataLabels: {
+                formatter: function () {
+                    return null; //this.y >= 0 ? this.point.name.toUpperCase() + '<br>' + strTimeDelta(this.y, false) + ""  : null;
+                },
+                color: '#000000',
+                style: {
+                    fontSize: '10pt',
+                },
+                distance: 20,
+                rotation: 0,
+            },
+            //allowPointSelect: false,
+            showInLegend: false,
+            animation: animate ? {
+                duration: 1200,
+            } : false,
+        }],
+      };
+
+      $('#piechart_tl').highcharts(tl_chart_options);
     }
 
 
@@ -256,7 +397,7 @@
       for (var q=0; q < hacking_titles.length; q++) {
         hacking_titles_div = hacking_titles_div.append("div").attr("class", "fdiv").attr("style", "margin-right: 0px;");
         hacking_titles_div.append("span").attr("class", "tt").attr("style", "font-size: 10pt; font-weight:bold; color: black"
-	// + color_hash[hacking_titles[q]]
+	// + activity_color_hash[hacking_titles[q]]
 	).text(hacking_titles[q]);
       }
 
@@ -291,7 +432,7 @@
         return {
           name: m,
           val: key_stats.hasOwnProperty(m) ? key_stats[m].f : 0,
-          col: color_hash[m],
+          col: activity_color_hash[m],
         };
       });
       stats = _.filter(stats, function(d) { return d.val > 60 }); // cutoff at 1 minute
@@ -424,7 +565,7 @@
       var ttoti = [];
       var filter_colors = [];
       for(var q=0;q<filter.length;q++) { 
-        filter_colors[q] = color_hash[filter[q]];
+        filter_colors[q] = activity_color_hash[filter[q]];
         ttoti.push(0); 
       }
       for(var i=0,N=es.length;i<N;i++) {
@@ -557,7 +698,8 @@
         }
     }
 
-    function fetchAndLoadEvents(daylog, animate=true) {
+    function fetchAndLoadEvents(daylog, animate) {
+      animate = (typeof animate === 'undefined') ? true : animate;
       loaded = false;
       // we do this random thing to defeat caching. Very annoying
       var json_path = daylog.fname + "?sigh=" + Math.floor(10000*Math.random());
@@ -578,7 +720,7 @@
         statEvents(events);
 
         // create color hash table, maps from window titles -> HSL color
-        color_hash = colorHashStrings(_.uniq(_.pluck(events, 'm')));
+        activity_color_hash = colorHashStrings(_.uniq(_.pluck(events, 'm')));
 
         // find the time extent: min and max time for this day
         if(events.length > 0) {
@@ -588,6 +730,8 @@
           t00 = daylog.t0;
           ft = daylog.t1;
         }
+        t00_initial = t00;
+        ft_initial = ft;
 
         renderBlogEntry('blog' in data ? data['blog'] : '');
 
@@ -772,7 +916,8 @@
       }      
     }
 
-    function reload(animate=true) {
+    function reload(animate) {
+        animate = (typeof animate === 'undefined') ? true : animate;
         startSpinner();
         var r_time = 0;
         if (cur_event_id >= 0 && event_list) {
@@ -824,6 +969,8 @@
     </div>
     <div id="wrap">
       <div id="piecharts">
+          <div id="piechart_tl"></div>
+          <div id="piechart_tl_centertext" style="position:absolute; left:0px; top:0px;"></div>
           <div id="piechart"></div>
       </div>
       <div id="blogwrap">
