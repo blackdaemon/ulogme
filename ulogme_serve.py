@@ -113,7 +113,7 @@ class CustomHandler(six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler):
 
 
 six.moves.socketserver.ThreadingTCPServer.allow_reuse_address = True
-httpd = none
+httpd = None
 
 logging.info("Serving ulogme, see it on http://localhost:%d" % PORT)
 try:

@@ -5,11 +5,15 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
     <title>ulogme</title>
     <link rel="icon" type="image/png" href="/favicon.png" />
+    <link href='normalize.css' rel='stylesheet' type='text/css'>
     <link href='font_lato.css' rel='stylesheet' type='text/css'>
+    <link href='font_teko.css' rel='stylesheet' type='text/css'>
     <link href='index_style.css' rel='stylesheet' type='text/css'>
+    <link href='ion.rangeSlider.css' rel='stylesheet' type='text/css'>
+    <link href='ion.rangeSlider.skinFlat.css' rel='stylesheet' type='text/css'>
 
     <script src="jquery-1.8.3.min.js"></script>
-    <script src="spin.min.js"></script>
+<!--     <script src="spin.min.js"></script> -->
     <script>
 	window.onerror = ErrorLog;
 	function ErrorLog (msg, url, line) {
@@ -27,33 +31,152 @@
     <script src="ulogme_common.js" charset="utf-8"></script>
     <script src="highcharts.js"></script>
     <script src="exporting.js"></script>
+    <script src="ion.rangeSlider.min.js" charset="utf-8"></script>
+    <script src="mousetrap.min.js" charset="utf-8"></script>
+
+    <link rel="stylesheet" href="spinner.css" type="text/css">
+    <script type="text/javascript" src="spinner.js"></script>
+    
     <script type="application/javascript">
 
     // GLOBALS
-    var color_hash = {}; // mapped titles -> hsl color to draw with
-    var t00; // initial time for a day (time first event began)
-    var ft; // final time for a day (time last event ended)
+    var activity_color_hash = {}; // mapped titles -> hsl color to draw with
+    var t00, t00_initial; // initial time for a day (time first event began)
+    var ft, ft_initial; // final time for a day (time last event ended)
     var ecounts = {};
     var etypes = [];
     var hacking_stats = {};
+    var spinner;
+    var last_reload = 0;
 
+    function visualizeTimeRangeSlider() {
+    	var time_range_scale = function() {
+            // This object represents time range scale in half hour increments,
+            // starting at 7am and ending at 7:00am next day
+    		var _values=[];
+    		var _h = 7, _m = 0;
+    		// Construct the scale array of string time representations
+    		for (var _i=0; _i<=24*2; _i++) {
+    			_values.push(("0"+_h).substr(-2)+":"+("0"+_m).substr(-2));
+                _h = (_m==30) ? (_h < 23 ? _h+1 : 0) : _h;
+                _m = (_m==0) ? 30 : 0;
+    		}
+    		return {
+    			values: _values,
+                // Get index on the scale
+    			get_index: function (date, upper) {
+    				// Optional overflow into next half-hour
+    	            upper = (typeof upper === 'undefined') ? false : upper;
+    	            var idx = date.getHours()*2 - 7*2 + Math.floor(date.getMinutes()/30+(upper ? 1 : 0));
+    	            if (idx < 0) {
+    	                idx += 24*2;
+    	            } else if (idx == 0 && upper) {
+                        idx += 24*2;
+                    }
+    	            return idx;
+    	        },
+    		}
+    	}();
+    	
+    	var di = new Date(t00_initial * 1000)
+        var from = time_range_scale.get_index(di);
+        var df = new Date(ft_initial * 1000)
+        var to = time_range_scale.get_index(df, true);
+        var dow = di.getDay();
+        var from_min = Math.min(
+            from, 
+            working_hours[dow].start ? time_range_scale.get_index(working_hours[dow].start) : from 
+        );
+        var from_max = Math.max(
+            to, 
+            working_hours[dow].end ? time_range_scale.get_index(working_hours[dow].end) : to 
+        );
+        var timerange_onchange_timer;
+        
+        $("#timerange_slider").ionRangeSlider({
+    	    type: "double",
+    	    grid: true,
+    	    from: from,
+    	    to: to,
+    	    from_min: from_min,
+    	    from_max: from_max,
+    	    from_shadow: true,
+            min_interval: 1,
+            drag_interval: true,
+    	    values: time_range_scale.values,
+    	    onChange: function(data) {
+    	    	clearTimeout(timerange_onchange_timer || 0);
+    	    	timerange_onchange_timer = setTimeout(function () {
+                    var d;
+    	            d = new Date(t00_initial * 1000);
+                    d.setHours(data.from_value.split(":")[0], data.from_value.split(":")[1], 0, 0);
+    	    	    t00 = d.getTime() / 1000;
+    	    	
+                    d = new Date(ft_initial * 1000);
+                    d.setHours(data.to_value.split(":")[0], data.to_value.split(":")[1], 0, 0);
+                    ft = d.getTime() / 1000;
+
+                    dirty = true;
+    	    	    redraw();
+    	            createPieChart(events, etypes, false);
+    	    	}, 700);
+    	    },
+    	});
+        // Save slider instance to var
+        var slider = $("#timerange_slider").data("ionRangeSlider");
+        
+        var range_update_timer = setInterval(adjust_slider_from_max, get_time_to_next_update());
+
+        function get_time_to_next_update() {
+            var now = new Date();
+            var remaining_time = 60*60 - (now.getMinutes()*60 + now.getSeconds()); 
+        	return 1000*(remaining_time/60 <= 30 ? remaining_time : remaining_time-30*60);
+        }
+        
+        function adjust_slider_from_max() {
+            var d0 = new Date(t00_initial * 1000)
+            // reset to 7am
+            d0.setHours(7, 0, 0, 0);
+            var now = new Date();
+            if (now.getTime() >= d0.getTime()+24*60*60*1000) {
+            	// Stop updating the slider to/from_max if time overrun over 7am next day
+            	return
+            }
+            var to = time_range_scale.get_index(now, true);
+            if (to <= slider.from) {
+                to += 24*2;
+            }
+            slider.update({
+                to:to,
+            });
+            clearInterval(range_update_timer);
+            range_update_timer = setInterval(adjust_slider_from_max, get_time_to_next_update());
+        }
+    }
+    
+    
     // renders pie chart showing distribution of time spent into #piechart
-	function createPieChart(es, etypes, animate=true) {
+	function createPieChart(es, etypes, animate) {
+		animate = (typeof animate === 'undefined') ? true : animate;
 		// count up the total amount of time spent in all windows
 		var dtall = 0;
-		var counts = {};
-		_.each(es, function(e){
-			counts[e.m] = (counts[e.m] || 0) + e.dt;
+		//var counts = {};
+		_.each(es, function(e) {
+			if (e.t < t00 || e.t > ft) {
+				return;
+			}
+			//counts[e.m] = (counts[e.m] || 0) + e.dt;
 			dtall += e.dt;
 		});
 
-		var stats = _.map(etypes, function(m) {
+		/*
+        var stats = _.map(etypes, function(m) {
 			return {val: counts[m], 
 				name: m + " (" + (100*counts[m]/dtall).toFixed(1) + "%)",
-				col: color_hash[m]
+				col: activity_color_hash[m]
 			};
 		});
-
+        */
 		title = "Total Time: " + strTimeDelta(dtall);
 
 		var colors = Highcharts.getOptions().colors,
@@ -72,55 +195,107 @@
 		for (var gi = 0; gi < activity_groups.length; gi += 1) {
 			var ag = activity_groups[gi]
 			for (var ti = 0; ti < ag.titles.length; ti += 1) {
-				title_to_group[ag.titles[ti]] = ag.name
+				title_to_group[ag.titles[ti]] = ag
 			}
 		}
-		var activity_totals = {},
-			activity_group_totals = {},
-			data_tree = {},
+		var data_tree = {},
 			ev,
 			ag,
 			d;
 		for (i = 0; i < es.length; i += 1) {
 			ev = es[i]
+            if (ev.t < t00 || ev.t > ft) {
+                continue;
+            }
 			ag = title_to_group[ev.m]
-			if (ag in data_tree) {
-				data_tree[ag].total = data_tree[ag].total + ev.dt
-				data_tree[ag].activities[ev.m] = (data_tree[ag].activities[ev.m] || 0) + ev.dt
+			if (ag.name in data_tree) {
+				data_tree[ag.name].total = data_tree[ag.name].total + ev.dt
+				data_tree[ag.name].activities[ev.m] = (data_tree[ag.name].activities[ev.m] || 0) + ev.dt
 			} else {
-				data_tree[ag] = {
-					name: ag,
+				data_tree[ag.name] = {
+					name: ag.name,
+					plevel: ag.plevel,
+					color: (ag.color || null),
 					total: ev.dt,
 					activities: {}
 				}
-				data_tree[ag].activities[ev.m] = ev.dt
+				data_tree[ag.name].activities[ev.m] = ev.dt
 			}
 		}
 
-		var activity_color_hash = colorHashStrings(_.uniq(Object.keys(activity_totals)));
-		for (var group_name in data_tree) {
-			var grp = data_tree[group_name]
+		var productivity_pulse = 0;
+		for (var agi = 0; agi < activity_groups.length; agi += 1) {
+			if (!(activity_groups[agi].name in data_tree)) {
+			    continue;	
+			}
+            ag = data_tree[activity_groups[agi].name];
 			groupsData.push({
-				name: grp.name,
-				y: grp.total,
-				color: activity_group_color_hash[grp.name],
+				name: ag.name,
+				y: ag.total,
+				color: ag.color || activity_group_color_hash[ag.name],
 				dataLabels: {
 					rotation:0,
 				},
 			});
-			var activity_names = Object.keys(grp.activities).sort(function(a,b){
+			productivity_pulse = productivity_pulse + (ag.plevel / dtall * ag.total);  
+			var activity_names = Object.keys(ag.activities).sort(function(a,b){
 				var cmp = a.toLowerCase().localeCompare(b.toLowerCase())
 				return cmp != 0 ? cmp : a.localeCompare(b);
 			});
+	        var an;
 			for (i = 0; i < activity_names.length; i += 1) {
-				var total = grp.activities[activity_names[i]]
+				an = activity_names[i];
 				activitiesData.push({
-					name: activity_names[i],
-					y: total ,
-					color: activity_color_hash[activity_names[i]]
+					name: an,
+					y: ag.activities[an],
+					color: activity_color_hash[an],
 				});
 			}
 		}
+        var dow = new Date(t00_initial * 1000).getDay();
+        var today_workable_hours = working_hours[dow].start && working_hours[dow].end ? 
+            (working_hours[dow].end.getTime() - working_hours[dow].start.getTime())/1000/60/60 
+            : 0;
+        if (today_workable_hours > 0) {
+        	// Handicap for not working all workable hours
+        	if (dtall/60/60 < today_workable_hours) {
+                productivity_pulse = productivity_pulse / (today_workable_hours / (dtall/60/60));
+        	}
+        }
+		productivity_pulse = Math.round(productivity_pulse);
+		
+        var previous_productivity_pulse = null
+            ,productivity_gain = 0;
+        var d0 = new Date(t00 * 1000)
+        // reset to 7am
+        d0.setHours(7, 0, 0, 0);
+        var today_s = d0.getTime() / 1000;
+        setCookie("ulogme-productivity-pulse-" + today_s, productivity_pulse, 30);
+        var days = 1;
+		while (true) {
+			   var previous_day = new Date((today_s - days*24*60*60)*1000);
+			   previous_productivity_pulse = getCookie("ulogme-productivity-pulse-" + previous_day.getTime()/1000) || null;
+               // Successfully got previous day pulse
+			   if (previous_productivity_pulse > 0) {
+            	   break;
+               } 
+               // Previous day pulse was 0, return it only if it was not a weekend
+			   else if (previous_productivity_pulse == 0) {
+            	   if (!skip_zero_weekend_pulse) {
+            		   break
+            	   }
+                   // Return only if not weekend
+            	   if (previous_day.getDay() != 0 && previous_day.getDay() != 6) {
+            		   break;
+            	   }
+               }
+               // Give up after checking 10 days
+               if (days == 10) {
+            	   break;
+               }
+               days++;
+		}
+        productivity_gain = previous_productivity_pulse != null ? productivity_pulse - previous_productivity_pulse : 0;  
 
 	    // Create the chart
         var main_chart_options = {
@@ -151,7 +326,7 @@
                     center: ['50%', '45%'],
                     allowPointSelect: true,
                     showInLegend: true,
-                    },
+                },
             },
             tooltip: {
                 valueSuffix: '%',
@@ -166,13 +341,13 @@
                 innerSize: '70%',
                 dataLabels: {
                     formatter: function () {
-                        return this.y >= 0 ? this.point.name.toUpperCase() + '<br>' + strTimeDelta(this.y, false) + ""  : null;
+                        return this.y >= 0 ? this.point.name.toUpperCase().substring(0,3)/* + ' (' + strTimeDelta(this.y, false) + ")"*/ : null;
                     },
                     color: '#000000',
                     style: {
-                        fontSize: '12pt',
+                        fontSize: '8pt',
                     },
-                    distance: -75,
+                    distance: -55,
                     rotation: 0,
                 },
                 allowPointSelect: false,
@@ -193,6 +368,7 @@
                     },
                     style: {
                         fontSize: '10pt',
+                        'font-family': "'Teko', sans-serif",
                     },
                 },
                 animation: animate ? {
@@ -224,8 +400,101 @@
             });
         };
 
-          //rotate();
+        //rotate();
         $('#piechart').highcharts(main_chart_options);
+
+        //productivity_gain = 95;
+		var tl_chart_options = {
+			credits: {
+				enabled: false
+			},
+			exporting: {
+				enabled: false,
+			},
+        chart: {
+                plotBackgroundColor: null,
+                plotBorderWidth: null,
+            type: 'pie', 
+            backgroundColor: null, //'rgba(192, 192, 192, 0.002)',
+        },
+        title: {
+            text: '<div style="border:0px solid red;position:absolute;top:-50px;left:-40px;text-align:center;">'
+                + '<span style="height:70px;font-size:70px !important; font-family : \'Teko\', sans-serif;display: inline-block !important;">' + Math.round(productivity_pulse) + '</span>'
+                 +'<span style="font-size:18px !important; font-family : \'Teko\', sans-serif;"> ' +(productivity_gain != 0 ? 
+                         ' '+(productivity_gain > 0 ? '<span style="color:#005b96;font-weight:600;">&#x2b06;' + productivity_gain + '</span>'
+                                 : '<span style="color:red;font-weight:600;">&#x2b07;' + Math.abs(productivity_gain) + '</span>'
+                                 )
+                      : ' <strong>---</strong>')//'/100
+                      +'</span>'
+                 +'<br><span style="font-size:15px;">' + PRODUCTIVITY_PULSE_NAME.split(" ")[0]
+                 /*
+                 + (productivity_gain != 0 ? 
+                	' '+(productivity_gain > 0 ? '<span style="color:#005b96;font-weight:600;">&#x2b06;' + productivity_gain + '</span>'
+                			   : '<span style="color:red;font-weight:600;">&#x2b07;' + Math.abs(productivity_gain) + '</span>'
+                			   )
+                	: ' <strong>---</strong>')
+                */
+                 +'</span>'
+                 +'</div>',
+            useHTML: true,
+            verticalAlign: 'middle',
+        },
+        plotOptions: {
+            pie: {
+                shadow: false,
+                center: ['50%', '50%'],
+		allowPointSelect: true,
+		showInLegend: true,
+                startAngle: -150,
+                endAngle: 80,
+                colors: function () {
+                    var colors = [],
+                        base = Highcharts.getOptions().colors[0],
+                        i;
+
+                    for (i = 0; i < 10; i += 1) {
+                        // Start out with a darkened base color (negative brighten), and end
+                        // up with a much brighter color
+                        colors.push(Highcharts.Color(base).brighten((i - 3) / 7).get());
+                    }
+                    return colors;
+                },
+	    },
+        },
+        tooltip: {
+            valueSuffix: '',
+            formatter: function () {
+            	var a = data_tree[this.point.name];
+            	var tt = PL_NAMES[data_tree[this.point.name].plevel];
+            	return tt;
+                //return strTimeDelta(this.y, false) + ' (' + this.percentage.toFixed(1) + '%)';
+            }
+        },
+        series: [{
+            name: 'Productivity',
+            data: groupsData,
+            size: '100%',
+	        innerSize: '75%',
+            dataLabels: {
+                formatter: function () {
+                    return null; //this.y >= 0 ? this.point.name.toUpperCase() + '<br>' + strTimeDelta(this.y, false) + ""  : null;
+                },
+                color: '#000000',
+                style: {
+                    fontSize: '10pt',
+                },
+                distance: 20,
+                rotation: 0,
+            },
+            //allowPointSelect: false,
+            showInLegend: false,
+            animation: animate ? {
+                duration: 1200,
+            } : false,
+        }],
+      };
+
+      $('#piechart_tl').highcharts(tl_chart_options);
     }
 
 
@@ -254,7 +523,7 @@
       for (var q=0; q < hacking_titles.length; q++) {
         hacking_titles_div = hacking_titles_div.append("div").attr("class", "fdiv").attr("style", "margin-right: 0px;");
         hacking_titles_div.append("span").attr("class", "tt").attr("style", "font-size: 10pt; font-weight:bold; color: black"
-	// + color_hash[hacking_titles[q]]
+	// + activity_color_hash[hacking_titles[q]]
 	).text(hacking_titles[q]);
       }
 
@@ -289,7 +558,7 @@
         return {
           name: m,
           val: key_stats.hasOwnProperty(m) ? key_stats[m].f : 0,
-          col: color_hash[m],
+          col: activity_color_hash[m],
         };
       });
       stats = _.filter(stats, function(d) { return d.val > 60 }); // cutoff at 1 minute
@@ -347,7 +616,7 @@
         var d = {};
         d.x = e.t-t00;
         d.s = e.s;
-        if(e.s.indexOf("coffee")>-1) {
+        if (e.s.toLowerCase().indexOf("coffee") > -1) {
           // we had coffee
           coffees.push(e.t-t00);
         }
@@ -422,7 +691,7 @@
       var ttoti = [];
       var filter_colors = [];
       for(var q=0;q<filter.length;q++) { 
-        filter_colors[q] = color_hash[filter[q]];
+        filter_colors[q] = activity_color_hash[filter[q]];
         ttoti.push(0); 
       }
       for(var i=0,N=es.length;i<N;i++) {
@@ -537,12 +806,25 @@
 
     function startSpinner() {
       // create a spinner
-      var target = document.getElementById('spinnerdiv');
-      opts = {left:'30px', top:'40px', radius: 10, color: "#FFF" };
-      var spinner = new Spinner(opts).spin(target);
+      //opts = { left:'50px', top:'40px', radius: 10, color: "#FFF", lines:15, length:9 };
+      //var spinner = new Spinner(opts).spin(target);
+      if (typeof spinner === "undefined") {
+    	  spinner = new Spinner(
+    		document.getElementById('spinnerdiv'), 
+    		{
+    	      color: 'white',
+    	      y: '80%',
+    	      x: '80%',
+    	      showCurtain: false,
+    	    });
+          spinner.start();
+      } else {
+          spinner.show();
+      }
     }
     function stopSpinner() {
-      $("#spinnerdiv").empty();
+      //$("#spinnerdiv").empty();
+        setTimeout(function() { spinner.hide() }, 500);
     }
 
     function renderBlogEntry(blog) {
@@ -555,7 +837,8 @@
         }
     }
 
-    function fetchAndLoadEvents(daylog, animate=true) {
+    function fetchAndLoadEvents(daylog, animate) {
+      animate = (typeof animate === 'undefined') ? true : animate;
       loaded = false;
       // we do this random thing to defeat caching. Very annoying
       var json_path = daylog.fname + "?sigh=" + Math.floor(10000*Math.random());
@@ -576,7 +859,7 @@
         statEvents(events);
 
         // create color hash table, maps from window titles -> HSL color
-        color_hash = colorHashStrings(_.uniq(_.pluck(events, 'm')));
+        activity_color_hash = colorHashStrings(_.uniq(_.pluck(events, 'm')));
 
         // find the time extent: min and max time for this day
         if(events.length > 0) {
@@ -586,11 +869,14 @@
           t00 = daylog.t0;
           ft = daylog.t1;
         }
+        t00_initial = t00;
+        ft_initial = ft;
 
         renderBlogEntry('blog' in data ? data['blog'] : '');
 
         visualizeEvents(events);
         writeHeader();
+        visualizeTimeRangeSlider();
         createPieChart(events, etypes, animate);
         computeKeyStats(events, key_events);
         hacking_stats = computeHackingStats(events, key_events, hacking_titles);
@@ -645,13 +931,13 @@
           {"note": $("#notetext").val(), "time": clicktime},
           function(data,status){
             console.log("Data: " + data + "\nStatus: " + status);
-            stopSpinner();
             if(data === 'OK') {
               // everything went well, refresh current view
               $("#notetext").val('') // erase
               $("#notesinfo").hide(); // take away
               fetchAndLoadEvents(event_list[cur_event_id]);
             }
+            //stopSpinner();
         });
       });
 
@@ -694,11 +980,24 @@
         $("#blogenter").show();
         $("#blogentertxt").val(txt)
         $("#blogentertxt").focus();
+        Mousetrap.bind('esc', function() {
+            renderBlogEntry($("#blogentertxt").val());
+            $("#blogpre").show();
+            $("#blogenter").hide();
+            Mousetrap.unbind("esc");
+            Mousetrap.unbind("mod+enter");
+         });
+        Mousetrap.bind('mod+enter', function() {
+        	$("#blogentersubmit").trigger("click");
+         });
         event.stopPropagation();
       });
 
       // setup the submit blog entry button
       $("#blogentersubmit").click(function(){
+          Mousetrap.unbind("esc");
+          Mousetrap.unbind("mod+enter");
+
         var txt = $("#blogentertxt").val();
         renderBlogEntry(txt);
         $("#blogpre").show();
@@ -709,10 +1008,10 @@
           {"time" : event_list[cur_event_id].t0, "post": txt},
            function(data,status){
             console.log("Data: " + data + "\nStatus: " + status);
-            stopSpinner();
             if(data === 'OK') {
               // everything went well
             }
+            stopSpinner();
           });
       });
 
@@ -722,6 +1021,8 @@
                   renderBlogEntry($("#blogentertxt").val());
                   $("#blogpre").show();
                   $("#blogenter").hide();
+                  Mousetrap.unbind("esc");
+                  Mousetrap.unbind("mod+enter");
               }
           }
       })
@@ -730,9 +1031,33 @@
       if (auto_reload_interval > 0) {
 		setInterval(auto_reload, auto_reload_interval*60*1000);
       }
+      
+      Mousetrap.bind('r', function() {
+       	 if (Date.now() - last_reload < 1000) {
+       		 return;
+         }
+	     reload();
+         last_reload = Date.now();
+      });
+      
+      Mousetrap.bind('n', function() {
+    	  $('#blogpre').trigger("click");
+      }, 'keyup');
+      
+      // Save original stopCallback function
+      Mousetrap_stopCallback = Mousetrap.prototype.stopCallback;
+      // Override stopCallback function to allow handling of Esc/Command+Enter hotkeys in blogentry
+      Mousetrap.prototype.stopCallback = function(e, element, combo) {
+    	    if (element.id == "blogentertxt" && (combo == "esc" || combo == "mod+enter")) {
+    	    	return false;
+    	    } else {
+    	        return Mousetrap_stopCallback(e, element, combo);
+    	    }
+    	}
     }
 
-    function reload(animate=true) {
+    function reload(animate) {
+        animate = (typeof animate === 'undefined') ? true : animate;
         startSpinner();
         var r_time = 0;
         if (cur_event_id >= 0 && event_list) {
@@ -742,11 +1067,11 @@
           {"time" : r_time},
           function(data,status){
             console.log("Data: " + data + "\nStatus: " + status);
-            stopSpinner();
             if(data === 'OK') {
               // everything went well, refresh current view
               fetchAndLoadEvents(event_list[cur_event_id], animate);
             }
+            stopSpinner();
         });
     }
 
@@ -782,9 +1107,16 @@
       <div id="header"></div>
       <span class="helper"></span><img id="rightarrow" src="double-chevron-right.svg" height=40 />
     </div>
+    <div id="time-range" value="">
+        <div style="position:absolute; z-index:-1; left:600px; height:20px; width: 800px; background-color: #ccc;"></div>
+        <input type="text" id="timerange_slider" name="timerange_slider" value="" style="display:none;"/>
+    </div>
     <div id="wrap">
       <div id="piecharts">
+          <div id="piechart_tl"></div>
+          <div id="piechart_tl_centertext" style="position:absolute; left:0px; top:0px;"></div>
           <div id="piechart"></div>
+          <div id="piechart_tl_centertext" style="position:absolute; left:0px; top:0px;"></div>
       </div>
       <div id="blogwrap">
         <div id="blogstash" style="display:none"></div>
