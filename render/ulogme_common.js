@@ -245,3 +245,20 @@ function computeHackingStats(ew, ek, hacking_titles) {
   hacking_stats.events = hacking_events;
   return hacking_stats;
 }
+
+
+function rewind7am(d) {
+	if (typeof d === 'undefined') {
+		// Default to today
+	    d = new Date();
+	}
+	
+	if (d.getHours() < 7) {
+	    // It's between 12am-7am, so this event still belongs to previous day
+	    d.setDate(d.getDate()-1);
+	}
+	// Reset time to 7am
+	d.setHours(7, 0, 0, 0);
+	
+	return d;
+}

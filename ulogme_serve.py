@@ -109,7 +109,7 @@ class CustomHandler(six.moves.SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.send_response(200)
         self.send_header('Content-type','text/html')
         self.end_headers()
-        self.wfile.write(result)
+        self.wfile.write(result.encode("utf8"))
 
 
 six.moves.socketserver.ThreadingTCPServer.allow_reuse_address = True

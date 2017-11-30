@@ -24,7 +24,7 @@ def loadEvents(fname):
     events = []
 
     try:
-        with open(fname, 'r') as f:
+        with open(fname, 'rb') as f:
             ws = f.read().decode('utf-8').splitlines()
         events = []
         for w in ws:
@@ -109,35 +109,36 @@ def updateEvents():
         if do_write:
             # okay lets do work
             e1 = loadEvents(e1f)
-
-            e2 = loadEvents(e2f)
-            for k in e2:
-                k['s'] = int(k['s'])  # int convert
-
-            e3 = ''
-            if isfile(e3f):
-                with open(e3f, 'r') as f:
-                    e3 = f.read()
-                    
-            e4 = ''
-            if isfile(e4f):
-                with open(e4f, 'r') as f:
-                    e4 = f.read()
-
-            eout = {
-                'window_events': e1,
-                'keyfreq_events': e2,
-                'notes_events': e3,
-                'blog': e4}
-            with open(fwrite, 'w') as f:
-                f.write(json.dumps(eout))
-                print('wrote %s' % fwrite)
             
-            something_written = True
+            if e1:
+                e2 = loadEvents(e2f)
+                for k in e2:
+                    k['s'] = int(k['s'])  # int convert
+    
+                e3 = ''
+                if isfile(e3f):
+                    with open(e3f, 'r') as f:
+                        e3 = f.read()
+                        
+                e4 = ''
+                if isfile(e4f):
+                    with open(e4f, 'r') as f:
+                        e4 = f.read()
+    
+                eout = {
+                    'window_events': e1,
+                    'keyfreq_events': e2,
+                    'notes_events': e3,
+                    'blog': e4}
+                with open(fwrite, 'w') as f:
+                    f.write(json.dumps(eout))
+                    print('wrote %s' % fwrite)
+                
+                something_written = True
 
     if something_written:
         fwrite = os.path.join(RENDER_ROOT, 'export_list.json')
-        with open(fwrite, 'w') as f:
+        with open(fwrite, 'wb') as f:
             f.write(json.dumps(out_list).encode('utf8'))
             print('wrote %s' % fwrite)
 

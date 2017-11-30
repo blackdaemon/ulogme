@@ -15,5 +15,10 @@ kill_process ulogme_serve.py
 kill_process "/bin/bash ./logactivewin.sh"
 kill_process "/bin/bash ./keyfreq.sh"
 
+PWD="$(pwd)"
+cd "$(dirname $0)"
+
 nohup ./ulogme.sh > ./ulogme.log 2>&1 &
 nohup python ./ulogme_serve.py > ./ulogme_serve.log 2>&1 &
+
+cd "$PWD"

@@ -83,3 +83,7 @@ var draw_coffee = false;
 
 // Reload interval in minutes. Set to 0 to turn off.
 var auto_reload_interval = 5;
+
+var show_productivity_pulse = true;
+var show_productivity_gain = true;
+var skip_zero_weekend_pulse = true;
