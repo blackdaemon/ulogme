@@ -97,10 +97,22 @@ play_sound() {
 #############################################
 notify_idle() {
   if [ $NOTIFYSEND_EXISTS = true ]; then
-    notify-send -t $(( IDLE_NOTIFICATION_TIME * 1000 )) -c "presence" -i "$(pwd -P)/render/favicon.png" \
-      -u critical "ulogme" "Logging computer idle in $IDLE_NOTIFICATION_TIME seconds"
+    #notify-send -t $(( IDLE_NOTIFICATION_TIME * 1000 )) -c "presence" -i "$(pwd -P)/render/favicon.png" \
+    #  -u critical "ulogme" "Logging computer idle in $IDLE_NOTIFICATION_TIME seconds"
+    gdbus call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications --method org.freedesktop.Notifications.Notify \
+        ulogme 42 "$(pwd -P)/render/favicon.png" "ulogme" "Logging computer idle in $IDLE_NOTIFICATION_TIME seconds" [] {} \
+        $(( IDLE_NOTIFICATION_TIME * 1000 )) \
+        | sed 's/[^ ]* //; s/,.//' > "./notification_id"
   fi
   play_sound "$IDLE_NOTIFICATION_SOUND"
+}
+
+close_notification() {
+  if [ -s "./notification_id" ]; then
+    gdbus call --session --dest org.freedesktop.Notifications --object-path /org/freedesktop/Notifications \
+      --method org.freedesktop.Notifications.CloseNotification $(cat "./notification_id")
+    rm "./notification_id" 
+  fi
 }
 
 
@@ -142,7 +154,7 @@ do
   # screensaver commands accordingly.
   if [ "$(pgrep -x xscreensaver | wc -l)" -gt 0 ]; then
     # This covers also XFCE, assume it uses xscreensaver by default.
-    sss=$(xscreensaver-command -time 2>&1)
+    sss=$(xscreensaver-command -time 2>&1 || echo -n "")
     if [[ $sss =~ $SSS_NOSCREENSAVER || $sss =~ $SSS_NONBLANKED || $sss =~ $SSS_NOSAVERSTATUS ]]; then
       islocked=false;
     fi
@@ -172,11 +184,18 @@ do
       w="${aw[0]}"
       if [ "$((16#${w:2}))" = $wid ]; then
         pid="${aw[@]:2:1}"
-        if [ "$pid" -eq 0 ]; then
-          continue
-        fi
         title="${aw[@]:8}"
-        command="$(stdbuf -o0 timeout -s 9 4 ps --no-headers -o command -q "$pid" 2>/dev/null | sed -r 's/\|/<pipe>/')"
+        command=""
+        if [ $pid -ne 0 ]; then
+          command="$(stdbuf -o0 timeout -s 9 4 ps --no-headers -o command -q "$pid" 2>/dev/null | sed -r 's/\|/<pipe>/' | sed -e 's/[ \t]*$//')"
+        else
+          if [[ "$title" =~ \(rdesktop\)$ ]]; then
+            command="rdesktop"
+          fi
+        fi
+        if [ -z "$command" ]; then
+          command = "unknown"
+        fi
         curtitle="$command|$title"
         break
       fi
@@ -209,6 +228,7 @@ do
       fi
     else
       idle_notification_on=false
+      close_notification
     fi
   fi
 
