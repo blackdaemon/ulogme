@@ -1,6 +1,7 @@
 render/events_*json
 .env
 logs
+*.bak
 *.swp
 *.swo
 *.pyc
@@ -14,3 +15,5 @@ nohup.out
 /.pydevproject
 /conf/no_idle_windows.conf
 /conf/render_settings.js
+/xprintidle/**
+/xprintidle-plus/**
